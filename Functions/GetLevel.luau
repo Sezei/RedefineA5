@@ -27,14 +27,13 @@ return function(env, player)
 			end
 		end
 		
-		--[[
 		if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
 			return HighestLevel, true, true; -- Return the highest level and mark as a base admin.
 		elseif game.CreatorType == Enum.CreatorType.Group and player:IsInGroup(game.CreatorId) then
 			if player:GetRankInGroup(game.CreatorId) == 255 then
 				return HighestLevel, true, true; -- Return the highest level and mark as a base admin.
 			end
-		end]]
+		end
 
 		local FoundBase = false;
 		local FoundLevel = 0;
