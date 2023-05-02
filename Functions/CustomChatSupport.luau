@@ -1,9 +1,11 @@
 local CollectionService = game:GetService("CollectionService");
 
 return {_NxWrapper = function(env)
-    -- SocialChat v2
+	-- SocialChat v2
 	task.spawn(function() -- Put it in a separate thread
-		local SocialChat = require(game.ReplicatedStorage:WaitForChild("SocialChat",60)); -- Give it a full minute to find it.
+		local SocialChatExists = game.ReplicatedStorage:WaitForChild("SocialChat",60); -- Give it a full minute to find it.
+		if not SocialChatExists then return end;
+		local SocialChat = require(SocialChatExists);
 		local Channels = SocialChat.Src.Channels
 
 		Channels.OnMessageSent:Connect(function(Speaker, Message, Recipient)
@@ -12,5 +14,5 @@ return {_NxWrapper = function(env)
 		end);
 	end)
 
-    return nil;
+	return nil;
 end};
