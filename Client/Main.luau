@@ -90,6 +90,86 @@ local function NameFormat(input:string) -- This will turn any string input into 
 	return output;
 end;
 
+-- A prompt is a hint with a selection of choices.
+local function CreatePrompt(options:{[any?]:any?}?)
+	-- Override protection; Await until the previous prompt is cleared.
+	if GUI:FindFirstChild("ActivePrompt") then
+		repeat task.wait() until not GUI:FindFirstChild("ActivePrompt");
+	end;
+
+	-- Create the prompt.
+	local Prompt = Assets:FindFirstChild("Prompt"):Clone();
+	Prompt.Name = "ActivePrompt";
+
+	local Choices = Prompt:FindFirstChild("Options");
+	local Content = Prompt:FindFirstChild("Content");
+	local Options = options.Options or {'Button'};
+
+	for _v in pairs(Choices:GetChildren()) do
+
+	end
+
+	Content.Text = options.Text or "Missing String";
+
+	local SortedOptions = {};
+	local PrimaryOption = nil;
+	local checked = false;
+	for internalname, optionvalues in pairs(options.Options) do
+		if type(optionvalues) == "string" then
+			SortedOptions[internalname] = optionvalues;
+			if checked == false then
+				PrimaryOption = internalname;
+			end
+			checked = true;
+		elseif type(optionvalues) == "table" then
+			SortedOptions[internalname] = internalname;
+			if optionvalues.Text and (type(optionvalues.Text) == "string" or type(optionvalues.Text) == "number") then
+				SortedOptions[internalname] = tostring(optionvalues.Text);
+				if checked == false then
+					PrimaryOption = internalname;
+				end
+			end
+			if optionvalues.Primary and type(optionvalues.Primary) == "boolean" and optionvalues.Primary == true then
+				PrimaryOption = internalname;
+			end
+			checked = true;
+		end
+	end
+	
+	-- Create the primary option
+	local Button:TextButton = Choices:FindFirstChild("PROMPT_DefaultButton"):Clone() :: TextButton;
+	Button.Name = PrimaryOption;
+	Button.Text = SortedOptions[PrimaryOption];
+	Button.Parent = Choices;
+	Button.Visible = true;
+	Button.Size = UDim2.new(0, Button.TextBounds.X + 20, 0, 30);
+	Button.MouseButton1Click:Connect(function()
+		InternalEvent:Fire("NotificationOptionSelected", options.UID, PrimaryOption);
+		Prompt:Destroy();
+	end);
+
+	-- Create the other options
+	for internalname, text in pairs(SortedOptions) do
+		if internalname ~= PrimaryOption then
+			local Button:TextButton = Choices:FindFirstChild("PROMPT_Button"):Clone() :: TextButton;
+			Button.Name = internalname;
+			Button.Text = text;
+			Button.Parent = Choices;
+			Button.Visible = true;
+			Button.Size = UDim2.new(0, Button.TextBounds.X + 10, 0, 30);
+			Button.MouseButton1Click:Connect(function()
+				InternalEvent:Fire("NotificationOptionSelected", options.UID, internalname);
+				Prompt:Destroy();
+			end);
+		end
+	end
+end;
+
+-- An Input is UI that allows the user to input text.
+local function CreateInput(options:{[any?]:any?}?)
+	--TODO: INPUT UI
+end;
+
 local function CreateNotification(text:string, options:{[any?]: any?}?)
     --[[
 	local UID = CreateUID();
@@ -1118,6 +1198,9 @@ RemoteFunction.OnClientInvoke = function(...)
 		return (not (not Cardboard:FindAsset(Arguments[1])));
 	elseif FunctionName == "Notify" then -- If used in a function, it usually means the server is awaiting for a response from the player due to the .Options; Return an UUID to the server.
 		local _, UID = CreateNotification(Arguments[1], Arguments[2]);
+		return UID;
+	elseif FunctionName == "Prompt" then
+		local _, UID = CreatePrompt(Arguments[1]);
 		return UID;
 	elseif env.ClientFunctions[FunctionName] then
 		return env.ClientFunctions[FunctionName](unpack(Arguments));
