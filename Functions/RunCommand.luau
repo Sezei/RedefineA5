@@ -397,7 +397,7 @@ return function(env, player, msg, console)
 									sortedarguments[argname] = found;
 								end
 							end
-						elseif argtype == "number" then
+						elseif argtype == "number" or argtype == "slider" then
 							if argtext and tonumber(argtext) then
 								sortedarguments[argname] = math.clamp(tonumber(argtext),arg.Minimum,arg.Maximum);
 							else
@@ -655,16 +655,37 @@ return function(env, player, msg, console)
 				end
 
 				-- Run the command
-				local success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
+				-- Check if the command is ran with compatibility mode
+				local success,ret
+				local compatibility = false;
+				if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) or (env.RA4C and env.RA4C[command.Name:lower()]) then
+					compatibility = true;
+					if sortedarguments[1] then
+						table.insert(sortedarguments,1,command.Name);
+					end
+					success,ret = pcall(function() return command.OnRun(player, sortedarguments,env); end)
+				else
+					success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
+				end;
 				if not success then
 					table.insert(env.Data.Logs.Errors,{os.time(),"Command Execution Failed: "..cmd..' with error "'..ret..'"'});
-					env.RemoteEvent:FireClient(player,"Notify","An error has occured while attempting to run the command; "..ret,{
-						Type = "critical";
-						Image = "http://www.roblox.com/asset/?id=6031071053";
-						Options = {
-							"Got it";
-						};
-					});
+					if not compatibility then
+						env.RemoteEvent:FireClient(player,"Notify","An error has occured while attempting to run the command; "..ret,{
+							Type = "critical";
+							Image = "http://www.roblox.com/asset/?id=6031071053";
+							Options = {
+								"Got it";
+							};
+						});
+					else
+						env.RemoteEvent:FireClient(player,"Notify","Command is not compatible; "..ret,{
+							Type = "critical";
+							Image = "http://www.roblox.com/asset/?id=6026568192";
+							Options = {
+								"Got it";
+							};
+						});
+					end;
 					env.Signals.ErrorRaised:Fire("Command Execution Failed: "..cmd..' with error "'..ret..'"');
 				else
 					pcall(function() -- Those are destined to fail if the command doesn't use cooldowns, but we don't want to crash if they don't; Doesn't do anything if the command doesn't use cooldowns.
@@ -672,8 +693,16 @@ return function(env, player, msg, console)
 						command.LastRunBy[player.UserId] = tick();
 					end)
 
-					if ret then
+					if ret or typeof(ret)=='boolean' then
 						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = ret, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+
+						if typeof(ret) == 'boolean' then
+							ret = {
+								Success = ret;
+							}
+							ret.Message = ret.Success and 'Command '..command.Name..' returned a success' or 'Command '..command.Name..' returned a failure';
+						end;
+
 						if ret.Success == true then
 							env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
 								Timeout = 10;	
@@ -683,6 +712,12 @@ return function(env, player, msg, console)
 								Type = "warning";
 								Timeout = 10;
 							});
+						end
+					else
+						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = ret, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+
+						if compatibility then
+							print("Command returned without a response");
 						end
 					end
 				end

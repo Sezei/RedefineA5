@@ -222,6 +222,83 @@ if firstCall then
 						if betabuild then loads+=1 end
 						local success,mod = pcall(function() return require(v) end)
 						if success then
+
+							-- WE MIGHT NEED TO CHECK FOR NANO COMPATIBILITY HERE
+							do
+								if type(mod.InGui) ~= "nil" then -- Nano Commands support
+									-- WE ARE USING A NANO COMMAND!!
+									if not (type(env.NanoCommands) == "table") then env.NanoCommands = {} end
+
+									if env.Commands[mod.Name] then
+										if env.Commands[v.Name].DisallowOverwrite then
+											warn('Redefine:A | Command "'..v.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
+											continue;
+										else
+											warn('Redefine:A | Command "'..v.Name..'" is being overwritten with a compatibility-mode command!')
+										end
+									end
+
+									mod.Level = 3; -- Assume it's an Admin command rather than a Moderator one; Better be safe than sorry!
+									mod.Credits = mod.Credit;
+									mod.Description = '(NANO); '..mod.Description.Short or '(NANO); No Description Provided.';
+									mod.Arguments = mod.Fields;
+
+									for _,v in pairs(mod.Arguments) do
+										v.Name = v.Internal;
+									end
+
+									local SC = env:CommandSC(mod, v);
+
+									if not SC then
+										warn('Redefine:A | Failed to compile Nano command '..v.Name..'.');
+										continue;
+									end
+
+									env.NanoCommands[string.lower(mod.Name)] = true;
+									env.Commands[string.lower(mod.Name)] = mod;
+
+									-- Add the credits
+									if not (type(env.Data.Credits) == "table") then env.Data.Credits = {} end
+									for _,v in pairs(mod.Credits) do
+										if not env.Data.Credits[v] then
+											env.Data.Credits[v] = true;
+										end
+									end
+
+									continue; -- Skip the entire section that comes after this
+								elseif type(mod.ModName) ~= 'nil' then -- R:A4 Backwards Compatibility
+									if not (type(env.RA4C) == "table") then 
+										env.RA4C = {};
+									end
+
+									if env.Commands[mod.ModName] then
+										if env.Commands[v.Name].DisallowOverwrite then
+											warn('Redefine:A | Command "'..v.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
+											continue;
+										else
+											warn('Redefine:A | Command "'..v.Name..'" is being overwritten with a compatibility-mode command!')
+										end
+									end
+
+									mod.Name = mod.ModName;
+									mod.Description = '(R:A4); ' .. mod.ModName .. " " .. mod.Usage;
+									mod.Arguments = 'rawinput'; -- R:A4 didn't support argument typing, so we'll just emulate a rawinput command.
+									mod.Aliases = mod.Alias;
+
+									local SC = env:CommandSC(mod, v);
+
+									if not SC then
+										warn('Redefine:A | Failed to compile R:A4 command '..v.Name..'.');
+										continue;
+									end
+
+									env.RA4C[string.lower(mod.Name)] = true;
+									env.Commands[string.lower(mod.Name)] = mod;
+
+									continue; -- Skip the entire section that comes after this
+								end;
+							end
+
 							local load = true;
 							local sanity = env:CommandSC(mod, v);
 

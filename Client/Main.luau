@@ -135,7 +135,7 @@ local function CreatePrompt(options:{[any?]:any?}?)
 			checked = true;
 		end
 	end
-	
+
 	-- Create the primary option
 	local Button:TextButton = Choices:FindFirstChild("PROMPT_DefaultButton"):Clone() :: TextButton;
 	Button.Name = PrimaryOption;
@@ -794,12 +794,25 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 
 	-- Highlight the command (if one is found);
 	local ValidCommand = false;
+	local Compatibility = false;
 	local Command = string.lower(Args[1]);
-	if Commands[Command] then
-		MaskedText = "<font color='#FFFF33'><b>" .. Command .. "</b></font>";
+	if Commands[Command] and Commands[Command].Description:sub(1,7) == "(NANO);" then
+		Compatibility = true;
+		MaskedText = "<font color='#D5D5D5'><b>" .. Command .. "</b></font>";
+		ValidCommand = true;
+	--elseif Commands[Command] and Commands[Command].ModName then
+	--	Compatibility = true;
+	--	MaskedText = "<font color='#D5D5D5'><b>" .. Command .. "</b></font>";
+	--	ValidCommand = true;
+	elseif Commands[Command] then
+		MaskedText = "<font color='#FFFF77'><b>" .. Command .. "</b></font>";
 		ValidCommand = true;
 	else
 		MaskedText = "<font color='#FFCC00'>" .. Command .. "</font>";
+	end
+
+	if ValidCommand and Commands[Command].Color then
+		MaskedText = "<font color='#" .. ToHex(Commands[Command].Color) .. "'><b>" .. Command .. "</b></font>";
 	end
 
 	-- Remove the command from the args
@@ -815,10 +828,18 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 		if #Args == 0 then
 			-- If none are filled, show the user the command's arguments
 			local Warning = Commandbar.Warnings.Template:Clone();
-			Warning.Text = "<b>" .. Commands[Command].Description .. "</b>";
-			Warning.Name = "Description";
-			Warning.Visible = true;
-			Warning.Parent = Commandbar.Warnings;
+			-- Check if the description starts with '(NANO); '; If it does, remove it, and replace it with a warning.
+			if Compatibility then
+				Warning.Text = "<font color='#cfcfcf'>Compatibility Mode; </font><b>" .. Commands[Command].Description:sub(9) .. "</b>";
+				Warning.Name = "Description";
+				Warning.Visible = true;
+				Warning.Parent = Commandbar.Warnings;
+			else
+				Warning.Text = "<b>" .. Commands[Command].Description .. "</b>";
+				Warning.Name = "Description";
+				Warning.Visible = true;
+				Warning.Parent = Commandbar.Warnings;
+			end
 		end
 
 		-- Check to see if the command has any keys within it. (Keys are arguments that change the way the command works; For example, --silent or --silent=true)
@@ -985,7 +1006,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 						Warning.Name = "Warning" .. argnum;
 						Warning.Text = "<font color='#ff0000'>Malformed Type</font>; " .. argnum .. "; Custom type missing a validator.";
 					end;
-				elseif Type == "number" then
+				elseif Type == "number" or Type == "slider" then
 					local num = tonumber(arg);
 					if num then
 						if num > (CommandArgs[argnum].Maximum or math.huge) then

@@ -42,6 +42,7 @@ return function (env, mod, v)
 				"players";
 				"safeplayers";
 				"color";
+				"slider";
 			};
 			if not (table.find(matchingtypes, typeofcommand)) then
 				env.warn(v.Name.." might error: Argument "..argkey.." has an invalid type.");
@@ -63,7 +64,7 @@ return function (env, mod, v)
 			-- Check number sanity
 			-- Numbers is special since it contains a Min and Max value
 			-- We need to check if the Min and Max values are numbers, the numbers are NOT NaN and the Min value is less than the Max value
-			if (typeofcommand == "number") then
+			if (typeofcommand == "number" or typeofcommand == "slider") then
 				-- Check if Min and Max are present (they are not required)
 				if not (type(argument.Minimum) == "number") then
 					argument.Minimum = -math.huge;
@@ -84,6 +85,11 @@ return function (env, mod, v)
 					env.warn(v.Name.." might error: Argument "..argkey.."'s Minimum value is greater than the Maximum value.");
 				end
 			end
+		end
+	elseif type(mod.Arguments)=='string' then
+		if mod.Arguments~='rawinput' then
+			env.warn(3,v.Name.." is not a valid command: Arguments is not a table or 'rawinput'");
+			return false;
 		end
 	end
 

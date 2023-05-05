@@ -4,6 +4,29 @@ local activenotifications = {
 local listener;
 
 return function(env, player, text, data)
+
+	-- Check if we are using api.Notify(player, {}) instead of env:Notify(player, "text", options); That way, we can recognise if the command came from compatibility mode.
+	if env.Name and game:GetService("Players"):FindFirstChild(env.Name) and typeof(player) == 'table' then -- ;-;
+
+		local type = 'normal'
+		-- Build the notification
+		if string.lower(player[1]) == "unsuccessful" or string.lower(player[1]) == "failed" or string.lower(player[1]) == "problem" or  string.lower(player[1]) == "warning" then
+			type = 'warning';
+		elseif string.lower(player[1]) == "no_permission" or string.lower(player[1]) == "error" then
+			type = 'error';
+		elseif string.lower(player[1]) == "script_error" or string.lower(player[1]) == "bug" then
+			type = 'critical';
+		end
+
+		game:GetService("ReplicatedStorage"):FindFirstChild("NxRemoteFunction"):InvokeClient(env, "Notify", player[2], {
+			Type = type;
+			Timeout = 20;
+		});
+
+		-- We are in compatibility mode! We won't use the new notification system.
+		return nil;
+	end
+
 	if not data then data = {} end; -- data is completely optional.
 	if not listener then
 		listener = env.RemoteEvent.OnServerEvent:Connect(function(player, key, uid, info)
