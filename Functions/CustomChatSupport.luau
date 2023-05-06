@@ -10,7 +10,7 @@ return {_NxWrapper = function(env)
 
 		Channels.OnMessageSent:Connect(function(Speaker, Message, Recipient)
 			table.insert(env.Data.Logs.Chat,{os.time(),Speaker.UserId,Message});
-			env:RunCommand(Speaker,Message);
+			env:RunCommand(Speaker.Agent,Message);
 		end);
 	end)
 
