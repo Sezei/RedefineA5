@@ -205,6 +205,26 @@ local function CreatePrivateConversation(playerID:number)
 
 	Input.Options.PROMPT_DefaultButton.MouseButton1Click:Connect(Send);
 	Input.Options.PROMPT_DefaultButton.Visible = true;
+
+	local SendLater = Input.Options.PROMPT_Button:Clone();
+	SendLater.Parent = Input.Options;
+	SendLater.Visible = true;
+	SendLater.Text = "Send Later";
+
+	SendLater.MouseButton1Click:Connect(function()
+		local UID = CreateUID();
+		Input.Name = UID;
+
+		Input.Visible = false;
+		local btn = GUI.Taskbar.InnerContainer.Template:Clone();
+		btn.Text = "PM to "..game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName
+		btn.Name = UID;
+		btn.Parent = GUI.Taskbar.InnerContainer;
+		task.wait();
+		btn.Size = UDim2.fromOffset(math.clamp(btn.TextBounds.X + 20, 90, 250), 40);
+		btn.Visible = true;
+	end);
+
 	Input.Options.PROMPT_Button.MouseButton1Click:Connect(Cancel);
 	Input.Options.PROMPT_Button.Visible = true;
 end;
@@ -240,6 +260,26 @@ local function ReceivePrivateConversation(playerID:number, text:string)
 
 	Input.Options.PROMPT_DefaultButton.MouseButton1Click:Connect(Send);
 	Input.Options.PROMPT_DefaultButton.Visible = true;
+
+	local SendLater = Input.Options.PROMPT_Button:Clone();
+	SendLater.Parent = Input.Options;
+	SendLater.Visible = true;
+	SendLater.Text = "Save Message";
+
+	SendLater.MouseButton1Click:Connect(function()
+		local UID = CreateUID();
+		Input.Name = UID;
+
+		Input.Visible = false;
+		local btn = GUI.Taskbar.InnerContainer.Template:Clone();
+		btn.Text = "PM from "..game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName
+		btn.Name = UID;
+		btn.Parent = GUI.Taskbar.InnerContainer;
+		task.wait();
+		btn.Size = UDim2.fromOffset(math.clamp(btn.TextBounds.X + 20, 90, 250), 40);
+		btn.Visible = true;
+	end);
+
 	Input.Options.PROMPT_Button.MouseButton1Click:Connect(Cancel);
 	Input.Options.PROMPT_Button.Visible = true;
 end;

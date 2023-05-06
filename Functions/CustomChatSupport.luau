@@ -12,6 +12,21 @@ return {_NxWrapper = function(env)
 			table.insert(env.Data.Logs.Chat,{os.time(),Speaker.UserId,Message});
 			env:RunCommand(Speaker.Agent,Message);
 		end);
+
+		-- Add a gateway
+		Channels:AddValidator(function(Speaker, Message, Recipient)
+			if env:GetLevel(Speaker.Agent) >= 1 then
+				-- Check if the message starts with the prefix, and whether or not it has a --silent flag within it.
+				if Message:sub(1,#env.Data.Prefix) == env.Data.Prefix then
+					local Silent = Message:find("--silent");
+					if Silent then
+						return true; -- Mark the message as invalid.
+					end;
+				end;
+			end;
+
+			return false; -- Mark the message as valid.
+		end);
 	end)
 
 	return nil;
