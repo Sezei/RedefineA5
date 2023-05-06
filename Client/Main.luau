@@ -1084,7 +1084,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 					MaskedText = MaskedText .. arg;
 					local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
 					Warning.Name = "Warning" .. argnum;
-					Warning.Text = "<font color='#ffff77'>Raw Input</font>; " .. argnum .. "; This command does not support highlighting.";
+					Warning.Text = "<font color='#ffff77'>Raw Input</font>; " .. argnum .. "; This argument does not support highlighting.";
 					Warning.Visible = true;
 					Warning.Parent = Commandbar:FindFirstChild("Warnings");
 				elseif Type == "player" or Type == "safeplayer" or Type == "players" or Type == "safeplayers" then
