@@ -29,7 +29,7 @@ return function(env, player, text, data)
 
 	if not data then data = {} end; -- data is completely optional.
 	if not listener then
-		listener = env.RemoteEvent.OnServerEvent:Connect(function(player, key, uid, info)
+		listener = env.RemoteEvent.OnServerEvent:Connect(function(player, key, uid, info,...)
 			if key == "NotificationOptionSelected" then
 				local notification = activenotifications[uid];
 				if notification then
@@ -41,6 +41,8 @@ return function(env, player, text, data)
 				end
 			elseif key == "CommandSent" then
 				env:RunCommand(player,env.Data.Settings.Prefix..uid,true);
+			elseif env.RemoteEventKeys and env.RemoteEventKeys[key] then
+				env.RemoteEventKeys[key](player,uid,info,...)
 			else
 				-- Unknown key!
 				if env.Data.Settings.RemoteTrap and env.Data.Settings.RemoteTrap.Enabled then

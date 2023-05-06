@@ -1,6 +1,7 @@
 game:GetService("TestService"):Message("Redefine:A5 | BuildId " .. script.Parent:GetAttribute("nxversion"));
 
 -- Services
+local ContentProvider = game:GetService("ContentProvider")
 local TweenService:TweenService = game:GetService("TweenService");
 local UserInputService:UserInputService = game:GetService("UserInputService");
 
@@ -100,21 +101,18 @@ local function CreatePrompt(options:{[any?]:any?}?)
 	-- Create the prompt.
 	local Prompt = Assets:FindFirstChild("Prompt"):Clone();
 	Prompt.Name = "ActivePrompt";
+	Dragify(Prompt);
 
 	local Choices = Prompt:FindFirstChild("Options");
 	local Content = Prompt:FindFirstChild("Content");
 	local Options = options.Options or {'Button'};
-
-	for _v in pairs(Choices:GetChildren()) do
-
-	end
 
 	Content.Text = options.Text or "Missing String";
 
 	local SortedOptions = {};
 	local PrimaryOption = nil;
 	local checked = false;
-	for internalname, optionvalues in pairs(options.Options) do
+	for internalname, optionvalues in pairs(Options) do
 		if type(optionvalues) == "string" then
 			SortedOptions[internalname] = optionvalues;
 			if checked == false then
@@ -167,7 +165,83 @@ end;
 
 -- An Input is UI that allows the user to input text.
 local function CreateInput(options:{[any?]:any?}?)
-	--TODO: INPUT UI
+	-- Override Protection: Wait until the previous input is gone.
+	if GUI:FindFirstChild("ActiveInput") then
+		repeat task.wait() until not GUI:FindFirstChild("ActiveInput");
+	end
+
+	--TODO: Input UI
+end;
+
+
+-- The following two functions will be removed upon the completion of CreateInput, and migrated into it.
+local function CreatePrivateConversation(playerID:number)
+	-- This uses the INPUT UI.
+	-- Make sure we don't override the previous input.
+	if GUI:FindFirstChild("ActiveInput") then
+		repeat task.wait() until not GUI:FindFirstChild("ActiveInput");
+	end
+
+	-- Create the input.
+	local Input = Assets:FindFirstChild("Input"):Clone();
+	Input.Name = "ActiveInput";
+	Input.Parent = GUI;
+	Input.Visible = true;
+	Dragify(Input);
+
+	Input.Title.Text = "Sending to <b>" .. game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName .. "</b>";
+
+	local function Send()
+		-- Send the message to the server.
+		local Text = Input.InputHolder:FindFirstChild("Input").Text
+		Input:Destroy();
+		RemoteEvent:FireServer("PrivateMessage", playerID, Text);
+	end;
+
+	local function Cancel()
+		-- Cancel the message.
+		Input:Destroy();
+	end;
+
+	Input.Options.PROMPT_DefaultButton.MouseButton1Click:Connect(Send);
+	Input.Options.PROMPT_DefaultButton.Visible = true;
+	Input.Options.PROMPT_Button.MouseButton1Click:Connect(Cancel);
+	Input.Options.PROMPT_Button.Visible = true;
+end;
+
+local function ReceivePrivateConversation(playerID:number, text:string)
+	-- Function to receive a private conversation message.
+	-- This uses the DInput UI, which is input but can't edit the message.
+
+	if GUI:FindFirstChild("ActiveInput") then
+		repeat task.wait() until not GUI:FindFirstChild("ActiveInput");
+	end
+
+	-- Create the input.
+	local Input = Assets:FindFirstChild("DInput"):Clone();
+	Input.Name = "ActiveInput";
+	Input.Parent = GUI;
+	Input.Visible = true;
+	Dragify(Input);
+
+	Input.Title.Text = "Private Message From <b>" .. game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName .. "</b>";
+	Input.InputHolder:FindFirstChild("Input").Text = text;
+
+	local function Send()
+		-- Send the message to the server.
+		Input:Destroy();
+		CreatePrivateConversation(playerID);
+	end;
+
+	local function Cancel()
+		-- Cancel the message.
+		Input:Destroy();
+	end;
+
+	Input.Options.PROMPT_DefaultButton.MouseButton1Click:Connect(Send);
+	Input.Options.PROMPT_DefaultButton.Visible = true;
+	Input.Options.PROMPT_Button.MouseButton1Click:Connect(Cancel);
+	Input.Options.PROMPT_Button.Visible = true;
 end;
 
 local function CreateNotification(text:string, options:{[any?]: any?}?)
@@ -800,10 +874,10 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 		Compatibility = true;
 		MaskedText = "<font color='#D5D5D5'><b>" .. Command .. "</b></font>";
 		ValidCommand = true;
-	--elseif Commands[Command] and Commands[Command].ModName then
-	--	Compatibility = true;
-	--	MaskedText = "<font color='#D5D5D5'><b>" .. Command .. "</b></font>";
-	--	ValidCommand = true;
+		--elseif Commands[Command] and Commands[Command].ModName then
+		--	Compatibility = true;
+		--	MaskedText = "<font color='#D5D5D5'><b>" .. Command .. "</b></font>";
+		--	ValidCommand = true;
 	elseif Commands[Command] then
 		MaskedText = "<font color='#FFFF77'><b>" .. Command .. "</b></font>";
 		ValidCommand = true;
@@ -1204,6 +1278,8 @@ RemoteEvent.OnClientEvent:Connect(function(...)
 		ClearNotification(Arguments[1]);
 	elseif EventName == "CreateList" then
 		CreateList(Arguments[1], Arguments[2]);
+	elseif EventName == "GetPM" then
+		ReceivePrivateConversation(Arguments[1], Arguments[2]);
 	elseif EventName == "Hint" then
 		local hint = Cardboard("Hint", GUI, {
 			Title = Arguments[1];

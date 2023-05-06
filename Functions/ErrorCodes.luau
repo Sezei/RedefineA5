@@ -21,7 +21,7 @@ function module:ResolveCode(code:number)
 		
 	-- Zero value: Unknown error
 	elseif code == 0 then
-		return "An internal calculation error has occured; This is unrelated to netiher the user nor the server. Please report this to the Nano Development Team alongside the error itself"
+		return "An internal calculation error has occured; This is unrelated to netiher the user nor the server. Please report this to 0bBinary/SezeiXD alongside the error itself"
 	end
 end
 
