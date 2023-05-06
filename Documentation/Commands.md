@@ -283,3 +283,26 @@ If the commandbar gives you a warning, it means the command may error.
 If the commandbar gives you a notice, it means the command is working, but may not be working as intended. This may be because you've used an argument that may fail, or because you've used a key that doesn't exist.
 
 If the commandbar gives you nothing, it means the command is working as intended; If it will still error without a commandbar warning, it means the code in OnRun is faulty.
+
+## Returning values
+References for this part;
+```lua
+Command --> The returned command table of which you build the command with.
+```
+
+Commands can return values and give messages back to the player. This is useful for when you want to make a command that returns a value and/or grant feedback to the user.
+
+To return a value, you must return a value in the OnRun function. This value will be returned to the player, and will be displayed in the commandbar.
+
+The return structure will look similar to this;
+```lua
+return {
+    Success = true; -- Whether the command was successful or not.
+    Message = "Success!"; -- The message that will be displayed in the commandbar.
+};
+```
+
+The return structure can also look like this, but it is not recommended since it does not provide actual feedback to the user;
+```lua
+return true;
+```
