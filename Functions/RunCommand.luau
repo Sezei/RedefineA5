@@ -375,27 +375,23 @@ return function(env, player, msg, console)
 
 							-- Check if the sortedarguments[argname] is in one of the options; If yes, autocomplete it to match the option
 							if arg.Options then
-							--[[
-								local found = false;
-								for _, v in pairs(CommandArgs[argnum].Options) do
-									if arg:sub(1, #v):lower() == v:lower() then
-										found = v;
-										break;
+								if type(arg.Options) == "function" then
+									-- Since the call itself is already protected with pcall, we don't need to pcall this function.
+									arg.Options = arg.Options(sortedarguments[argname]);
+								elseif type(arg.Options) == 'table' then
+									local found = false;
+									for _,v in pairs(arg.Options) do
+										-- if v (the option) starts with the sortedarguments[argname] (the argument), then it is a match; Set found to the option
+										if v:sub(1,#sortedarguments[argname]):lower() == sortedarguments[argname]:lower() then
+											found = v;
+											break;
+										end
 									end
-								end
-							]]
-								local found = false;
-								for _,v in pairs(arg.Options) do
-									-- if v (the option) starts with the sortedarguments[argname] (the argument), then it is a match; Set found to the option
-									if v:sub(1,#sortedarguments[argname]):lower() == sortedarguments[argname]:lower() then
-										found = v;
-										break;
+									if found then
+										-- Estimate that the player is trying to autocomplete the argument; Set the argument to the option
+										sortedarguments[argname] = found;
 									end
-								end
-								if found then
-									-- Estimate that the player is trying to autocomplete the argument; Set the argument to the option
-									sortedarguments[argname] = found;
-								end
+								end;
 							end
 						elseif argtype == "number" or argtype == "slider" then
 							if argtext and tonumber(argtext) then
@@ -694,7 +690,7 @@ return function(env, player, msg, console)
 					end)
 
 					if ret or typeof(ret)=='boolean' then
-						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = ret, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = type(ret) == 'table' and ret or type(ret) == 'boolean' and {Success = ret; Message = "Ran the command!"}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
 
 						if typeof(ret) == 'boolean' then
 							ret = {
@@ -714,7 +710,7 @@ return function(env, player, msg, console)
 							});
 						end
 					else
-						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = ret, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = {Success = true; Message = "The command has not returned anything."}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
 
 						if compatibility then
 							print("Command returned without a response");

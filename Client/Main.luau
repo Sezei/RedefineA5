@@ -958,6 +958,27 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 							CurrentAutoComplete = string.sub(found, string.len(arg) + 1);
 							MaskedText = MaskedText .. "<font color='#CCCCCC'>" .. CurrentAutoComplete .. "</font>";
 						end
+					elseif CommandArgs[argnum].Options and type(CommandArgs[argnum].Options) == "function" then
+						local Success, Option = pcall(function() CommandArgs[argnum].Options(arg:lower()) end);
+						if Success and Option then
+							MaskedText = MaskedText .. " <font color='#FFFFFF'>" .. arg .. "</font>";
+							CurrentAutoComplete = string.sub(Option, string.len(arg) + 1);
+							MaskedText = MaskedText .. "<font color='#CCCCCC'>" .. CurrentAutoComplete .. "</font>";
+						elseif Success then
+							MaskedText = MaskedText .. " <font color='#FFFFBC'>" .. arg .. "</font>";
+							local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
+							Warning.Name = "Warning" .. argnum;
+							Warning.Text = "<font color='#ffaa00'>Notice</font>; " .. argnum .. "; This argument does not match the function's return value.";
+							Warning.Visible = true;
+							Warning.Parent = Commandbar:FindFirstChild("Warnings");
+						else
+							MaskedText = MaskedText .. " <font color='#FF0000'><b>" .. arg .. "</b></font>";
+							local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
+							Warning.Name = "Warning" .. argnum;
+							Warning.Text = "<font color='#ff0000'>Malformed Type</font>; " .. argnum .. "; The argument's Options function returned an error.";
+							Warning.Visible = true;
+							Warning.Parent = Commandbar:FindFirstChild("Warnings");
+						end
 					else
 						MaskedText = MaskedText .. " <font color='#FFFFFF'>" .. arg .. "</font>";
 					end
