@@ -146,7 +146,7 @@ return function(env, player, msg, console)
 				local ignorelevel = false;
 
 				local response = command.RunCapability(env, player);
-				if type(response) == "boolean" then
+				if type(response) ~= "nil" then
 					-- It's being checked, ignore the level.
 					ignorelevel = true;
 
@@ -154,9 +154,15 @@ return function(env, player, msg, console)
 						-- The player has permission to run the command.
 					else
 						-- The player doesn't have permission to run the command.
-						env:Notify(player,"You are not allowed to run this command.",{
-							Type = "error";
-						})
+						if type(response) == "string" then
+							env:Notify(player,"You can't run this command: "..response,{
+								Type = "error";
+							})
+						elseif type(response) == "boolean" then
+							env:Notify(player,"You are not allowed to run this command.",{
+								Type = "error";
+							})
+						end
 						return
 					end
 				end;

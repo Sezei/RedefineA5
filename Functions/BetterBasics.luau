@@ -37,6 +37,16 @@ function module.table.median(t)
 	end
 end
 
+function module.table.invert(t)
+	local new = {}
+
+	for i,v in ipairs(t) do
+		new[#t-i+1] = v
+	end
+	
+	return new;
+end
+
 function module.string.placeholder(origin,placeholders)
 	local s:string = tostring(origin);
 

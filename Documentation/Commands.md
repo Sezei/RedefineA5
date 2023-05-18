@@ -3,6 +3,7 @@ Commands in Redefine:A 5 are way different than what they were in Redefine:A 4. 
 
 This is mainly because I wanted to make creating commands easier for developers, and I think having it like a type-system based command system is the best way to do it.
 
+
 ## Creating the command
 References for this part;
 ```lua
@@ -94,6 +95,7 @@ Let's start this from the beginning;
 
 `OnRun` -> Runs this code when the player executes the command.
 
+
 ## Creating the arguments
 References for this part;
 ```lua
@@ -132,6 +134,7 @@ Let's, again, start it from the beginning;
 `Required` -> Whether this argument is required or not. When it is not required, you must add a `Default` argument unless you use `Player`-based arguments.
 
 `...` -> Other variables that are specific to the argument type. See types below.
+
 
 ### Types
 Types are what defines the argument's type.
@@ -243,6 +246,7 @@ Full list of colors can be found in Shared/ColorLib.luau.
 
 Alternatively the player could type the full color, such as `255,255,255`.
 
+
 ## Creating the keys
 References for this part;
 ```lua
@@ -269,9 +273,16 @@ Command = {
     };
     ...
 }
+
+Keys.keyname => true / (typeof(Keys.keyname) == "boolean") || (typeof(Keys.keyname) == "number") || (typeof(Keys.keyname) == "string")
 ```
 
 There's nothing to explain here. Really. It's just a table that adds extra arguments with Keys.keyname = true when the player types `--keyname` with the command.
+
+Another thing to note, Keys could contain values, such as `--keyname=5` or `--keyname=hi`. This is useful for when you want to make a command that requires a value, such as `--delay=5`.
+
+In order to check if the key has a value, you must check if the key is a number or a string. If it is, it probably means the key has a value; Otherwise, it will be a boolean value.
+
 
 ## Using the command
 Now that we've created the command, we can use it.
@@ -283,6 +294,7 @@ If the commandbar gives you a warning, it means the command may error.
 If the commandbar gives you a notice, it means the command is working, but may not be working as intended. This may be because you've used an argument that may fail, or because you've used a key that doesn't exist.
 
 If the commandbar gives you nothing, it means the command is working as intended; If it will still error without a commandbar warning, it means the code in OnRun is faulty.
+
 
 ## Returning values
 References for this part;
