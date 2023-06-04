@@ -23,7 +23,7 @@ local InternalEvent:BindableEvent = GUI:FindFirstChild("InternalCommunication") 
 local RemoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("NxRemoteEvent") :: RemoteEvent;
 local RemoteFunction = game:GetService("ReplicatedStorage"):WaitForChild("NxRemoteFunction") :: RemoteFunction;
 local LocalPlayer:Player? = game:GetService("Players").LocalPlayer;
-local Players = game:GetService("Players"):GetPlayers();
+local Players = game:GetService("Players");
 
 -- For some reason these values keep resetting, so we have to set them again.
 GUI.IgnoreGuiInset = true;
@@ -82,6 +82,71 @@ local function ToHex(color)
 		return "#FFFFFF";
 	end;
 end;
+
+local QuickActionCursor = nil;
+QuickActionAPI = {
+	LocalPlayer = LocalPlayer;
+	Button = function(self, Text)
+		local Button = QuickActionCursor.ButtonTemplate:Clone();
+		Button.Text = Text;
+		Button.Parent = QuickActionCursor;
+		Button.Visible = true;
+
+		return Button;
+	end;
+	AddInstanceButton = function(self, Instance, Text)
+		local Button = QuickActionCursor.ButtonTemplate:Clone();
+		Button.Text = Text;
+		Button.Parent = QuickActionCursor;
+		Button.Visible = true;
+
+		Instance:GetPropertyChangedSignal("Parent"):Connect(function()
+			if Instance.Parent == nil then
+				Button:Destroy();
+			end;
+		end);
+
+		return Button;
+	end;
+	AddPlayerButton = function(self, Player, Text)
+		return QuickActionAPI:AddInstanceButton(Player, Text);
+	end;
+	RunCommand = function(self, Command)
+		RemoteEvent:FireServer("CommandSent", Command);
+	end;
+};
+
+local QuickActionTabs = {
+	InstantKick = {
+		Tab = {
+			Title = 'Instant Kick';
+			Description = 'Instantly kicks a player of your choice by tapping their name.';
+			Locked = true;
+			Color = Color3.fromRGB(255, 0, 0);
+		};
+		Buttons = {
+			Structuring = function(API)
+				for _,plr in pairs(Players:GetPlayers()) do
+					local Button = API:AddPlayerButton(plr, 'kick @'..plr.Name);
+					Button.MouseButton1Click:Connect(function()
+						API:RunCommand('kick @'..plr.Name);
+					end);
+				end;
+			end;
+			Updates = {
+				{
+					Players.PlayerAdded;
+					function(API, Player)
+						local Button = API:AddPlayerButton(Player, 'kick @'..Player.Name);
+						Button.MouseButton1Click:Connect(function()
+							API:RunCommand('kick @'..Player.Name);
+						end);
+					end
+				};
+			};
+		};
+	};
+}
 
 local function ClearNotification(Notification:TextButton)
 	Notification.Name = "disappearing"
@@ -210,7 +275,7 @@ local function CreatePrivateConversation(playerID:number)
 	Input.Visible = true;
 	Dragify(Input);
 
-	Input.Title.Text = "Sending to <b>" .. game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName .. "</b>";
+	Input.Title.Text = "Sending to <b>" .. Players:GetPlayerByUserId(playerID).DisplayName .. "</b>";
 
 	local function Send()
 		-- Send the message to the server.
@@ -238,7 +303,7 @@ local function CreatePrivateConversation(playerID:number)
 
 		Input.Visible = false;
 		local btn = GUI.Taskbar.InnerContainer.Template:Clone();
-		btn.Text = "PM to "..game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName
+		btn.Text = "PM to "..Players:GetPlayerByUserId(playerID).DisplayName
 		btn.Name = UID;
 		btn.Parent = GUI.Taskbar.InnerContainer;
 		task.wait();
@@ -265,7 +330,7 @@ local function ReceivePrivateConversation(playerID:number, text:string)
 	Input.Visible = true;
 	Dragify(Input);
 
-	Input.Title.Text = "Private Message From <b>" .. game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName .. "</b>";
+	Input.Title.Text = "Private Message From <b>" .. Players:GetPlayerByUserId(playerID).DisplayName .. "</b>";
 	Input.InputHolder:FindFirstChild("Input").Text = text;
 
 	local function Send()
@@ -293,7 +358,7 @@ local function ReceivePrivateConversation(playerID:number, text:string)
 
 		Input.Visible = false;
 		local btn = GUI.Taskbar.InnerContainer.Template:Clone();
-		btn.Text = "PM from "..game:GetService("Players"):GetPlayerByUserId(playerID).DisplayName
+		btn.Text = "PM from "..Players:GetPlayerByUserId(playerID).DisplayName
 		btn.Name = UID;
 		btn.Parent = GUI.Taskbar.InnerContainer;
 		task.wait();
@@ -762,7 +827,27 @@ end;
 
 -- Get the commands and several settings from the server
 local Commands = RemoteFunction:InvokeServer("GetCommands");
+local CommandModules = game:GetService("ReplicatedStorage"):FindFirstChild("RA5_Commands");
 local Method = string.lower(RemoteFunction:InvokeServer("GetMethod"));
+
+local LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId);
+local StoredLevels = {};
+StoredLevels[LocalPlayer.UserId] = LocalLevel;
+
+if Commands['kick'].Level > LocalLevel then
+	QuickActionTabs.InstantKick = nil;
+end
+
+for _,Module in pairs(CommandModules:GetChildren()) do
+	pcall(function()
+		local Data = require(Module);
+		if LocalLevel >= Data.Level then
+			if Data.QuickActions then
+				table.insert(QuickActionTabs, Data.QuickActions);
+			end
+		end
+	end);
+end
 
 --[[
 CreateNotification("Success!", {
@@ -827,7 +912,7 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 	-- If @strict is true, the name check will only apply for Player.Name; It will still allow short names, since we are attempting to find the player by name.
 	if Strict then
 		for _,Name in pairs(names) do
-			for _,v in next,game:GetService("Players"):GetPlayers() do
+			for _,v in next,Players:GetPlayers() do
 				if string.lower(v.Name):sub(1,string.len(Name)) == string.lower(Name) then
 					table.insert(matches,v);
 				end
@@ -838,7 +923,7 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 
 	-- Loop through all the players.
 	for _,Name in pairs(names) do
-		for _,v in next,game:GetService("Players"):GetPlayers() do
+		for _,v in next,Players:GetPlayers() do
 			local matched = false; -- If a player has been matched, this will be set to true so they won't be matched again and again.
 
 			-- Check if the executor started the Name with #; This will use the players' Local PlayerId (#1 = First Join, #2 = Second join, etc.)
@@ -880,7 +965,7 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 			-- Check the sortedqualifiers table for any matches; If there are any, handle them and add them to the matches table.
 			for method, qualifier in pairs(sortedqualifiers) do
 				if string.lower(Name) == string.lower(method) then
-					local MatchedPlayers = qualifier.identifier(false, Players, LocalPlayer);
+					local MatchedPlayers = qualifier.identifier(false, Players:GetPlayers(), LocalPlayer);
 					for _, Player in pairs(MatchedPlayers) do
 						table.insert(matches, Player);
 					end;
@@ -908,6 +993,8 @@ UserInputService.InputBegan:Connect(function(input)
 	if UserInputService:GetFocusedTextBox() then return end;
 
 	if input.KeyCode == Enum.KeyCode.Equals then
+		LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId); -- Update the local level stored in the client
+		StoredLevels[LocalPlayer.UserId] = LocalLevel; -- Update the stored level in the client
 		Commandbar:TweenPosition(UDim2.new(0.5, 0, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true,function()
 			Commandbar:FindFirstChild("Input").Text = "";
 			Commandbar.Warnings.Visible = true;
@@ -929,7 +1016,7 @@ Commandbar:FindFirstChild("Input").FocusLost:Connect(function(enterPressed)
 		if #LastCommands > 10 then -- If there are more than 10 commands, remove the last one to make space for the new one.
 			table.remove(LastCommands, #LastCommands);
 		end
-		
+
 		for _,v in pairs(Sidemenu.Content.QuickCommands:GetChildren()) do
 			if v:IsA("TextButton") and v.Visible then
 				v:Destroy();
@@ -1038,6 +1125,17 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 		-- Get the command's args
 		local CommandArgs = Commands[Command].Arguments;
 		local LastArgumentWarned = false;
+
+		-- Check if the player even has permission to run the command
+		if LocalLevel < Commands[Command].Level then
+			-- If not, warn them
+			local Warning = Commandbar.Warnings.Template:Clone();
+			Warning.Text = "<font color='#ff4444'>You do not have permission to run this command.</font>";
+			Warning.Name = "Permission";
+			Warning.Visible = true;
+			Warning.Parent = Commandbar.Warnings;
+			Warning.LayoutOrder = -1; -- Topmost
+		end
 
 		-- Check if no arguments are filled in yet
 		if #Args == 0 then
@@ -1325,6 +1423,33 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 								Warning.Parent = Commandbar:FindFirstChild("Warnings");
 							end
 						end
+
+						if Type == 'safeplayer' then
+							if LocalPlayer <= StoredLevels[FindPlayers(arg)[1].UserId] then
+								-- Add a warning
+								local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
+								Warning.Name = "Warning" .. argnum;
+								Warning.Text = "<font color='#ffaa00'>Notice</font>; " .. argnum .. "; You cannot target a player.";
+								Warning.Visible = true;
+								Warning.Parent = Commandbar:FindFirstChild("Warnings");
+							end
+						elseif Type == 'safeplayers' then
+							local found = false;
+							for i,v in pairs(FindPlayers(arg)) do
+								if LocalPlayer <= StoredLevels[v.UserId] then
+									found = true;
+									break;
+								end
+							end
+							if found then
+								-- Add a warning
+								local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
+								Warning.Name = "Warning" .. argnum;
+								Warning.Text = "<font color='#ffaa00'>Notice</font>; " .. argnum .. "; At least one of the players cannot be targeted.";
+								Warning.Visible = true;
+								Warning.Parent = Commandbar:FindFirstChild("Warnings");
+							end
+						end;
 					else
 						MaskedText = MaskedText .. " <font color='#FF0000'><b>" .. arg .. "</b></font>";
 						-- Add a warning
@@ -1411,7 +1536,7 @@ Taskbar.Logo.MouseButton1Click:Connect(function()
 end);
 
 Sidemenu.Close.MouseButton1Click:Connect(function()
-	Sidemenu:TweenPosition(UDim2.fromScale(-0.15, 0), "Out", "Quad", 0.2, true);
+	Sidemenu:TweenPosition(UDim2.fromScale(-0.2, 0), "Out", "Quad", 0.2, true);
 end);
 
 Sidemenu.QuickSettings.NotificationSounds.MouseButton1Click:Connect(function()
@@ -1419,40 +1544,41 @@ Sidemenu.QuickSettings.NotificationSounds.MouseButton1Click:Connect(function()
 	Sidemenu.QuickSettings.NotificationSounds.ImageButton.Image = NotificationSounds and "http://www.roblox.com/asset/?id=6034308946" or "http://www.roblox.com/asset/?id=6034308947";
 end);
 
--- Detect when players join/leave so we can add them into the InstantKick list
-local function RefreshPlayers()
-	-- Clear the list
-	for _,v in pairs(Sidemenu.Content.InstantKick:GetChildren()) do
-		if v:IsA("TextButton") and v.Visible then
-			v:Destroy();
-		end
+-- Go through all of the QuickActionTabs
+for Key,TabData in pairs(QuickActionTabs) do
+
+	local locked = TabData.Tab.Locked or false;
+	local Tab = Assets:FindFirstChild("QuickActionsTab"):Clone();
+	QuickActionCursor = Tab;
+	Tab.LayoutOrder = TabData.Tab.Locked and 2 or 0;
+	Tab.Name = Key;
+	Tab.Title.Text = TabData.Tab.Title;
+	Tab.Description.Text = TabData.Tab.Description;
+	Tab.BackgroundColor3 = TabData.Tab.Color or Color3.fromRGB(0, 0, 0);
+
+	if TabData.Tab.Locked then
+		Tab.Title.Lock.Visible = true;
+		Tab.Title.Lock.MouseButton1Click:Connect(function()
+			locked = not locked;
+			Tab.Title.Lock.Image = locked and "http://www.roblox.com/asset/?id=6031082533" or "http://www.roblox.com/asset/?id=6026568220";
+		end);
 	end
 
-	-- Add the players
-	for _,v in pairs(game:GetService("Players"):GetPlayers()) do
-		if v ~= game:GetService("Players").LocalPlayer then
-			local Button = Sidemenu.Content.InstantKick.Template:Clone();
-			Button.Name = v.Name;
-			Button.Text = 'Kick @'..v.Name;
-			Button.Visible = true;
-			Button.Parent = Sidemenu.Content.InstantKick;
+	-- Go through all of the actions
+	TabData.Buttons.Structuring(QuickActionAPI);
 
-			Button.MouseButton1Click:Connect(function()
-				if LockSections.InstantKick then return end; -- If the section is locked, don't do anything
-				RemoteEvent:FireServer("CommandSent", 'kick '..v.Name..' "You have been InstantKicked by an administrator."');
-			end);
-		end
-	end
+	-- Go through all of the update stuff
+	for _, update in ipairs(TabData.Buttons.Updates) do -- {Event, API Function}
+		update[1]:Connect(function(...)
+			QuickActionCursor = Tab;
+			update[2](QuickActionAPI, ...);
+		end);
+	end;
+
+	-- Add the tab
+	Tab.Parent = Sidemenu.Content;
+	Tab.Visible = true;
 end;
-
-game:GetService("Players").PlayerAdded:Connect(RefreshPlayers);
-game:GetService("Players").PlayerRemoving:Connect(RefreshPlayers);
-RefreshPlayers();
-
-Sidemenu.Content.InstantKick.Title.Lock.MouseButton1Click:Connect(function()
-	LockSections.InstantKick = not LockSections.InstantKick;
-	Sidemenu.Content.InstantKick.Title.Lock.Image = LockSections.InstantKick and "http://www.roblox.com/asset/?id=6031082533" or "http://www.roblox.com/asset/?id=6026568220";
-end);
 
 -- Connect the remotes.
 RemoteEvent.OnClientEvent:Connect(function(...)
@@ -1514,3 +1640,21 @@ RemoteFunction.OnClientInvoke = function(...)
 		return env.ClientFunctions[FunctionName](unpack(Arguments));
 	end
 end;
+
+Players.PlayerAdded:Connect(function(player)
+	StoredLevels[player.UserId] = RemoteFunction:InvokeServer("GetLevel", player.UserId);
+end);
+for _, player in ipairs(Players:GetPlayers()) do
+	StoredLevels[player.UserId] = RemoteFunction:InvokeServer("GetLevel", player.UserId);
+end;
+
+-- Update the stored levels every 60 seconds
+task.spawn(function()
+	while task.wait(60) do
+		for _, player in ipairs(Players:GetPlayers()) do
+			StoredLevels[player.UserId] = RemoteFunction:InvokeServer("GetLevel", player.UserId);
+		end;
+
+		LocalLevel = StoredLevels[LocalPlayer.UserId];
+	end;
+end)

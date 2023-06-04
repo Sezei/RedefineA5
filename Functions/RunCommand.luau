@@ -750,7 +750,7 @@ return function(env, player, msg, console)
 							Source = console and "console" or "chat";
 						};
 						-- Deprecated; Use Hooks.Command.Ran instead
-						env.Signals.CommandProcessed:Fire(player, command.Name, runcontext);
+						env.Signals.Processed:Fire(player, command.Name, runcontext);
 
 						for _,v in pairs(env.Hooks.Command.Ran) do
 							local success, error = pcall(function() return v(env, runcontext) end);
@@ -776,7 +776,7 @@ return function(env, player, msg, console)
 							});
 						end
 					else
-						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = {Success = true; Message = "The command has not returned anything."}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+						env.Signals.Processed:Fire(player, command.Name, {Command = command, Returned = {Success = true; Message = "The command has not returned anything."}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
 
 						if compatibility then
 							print("Command returned without a response");

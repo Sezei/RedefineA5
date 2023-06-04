@@ -178,6 +178,8 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 		return Commands;
 	elseif key == "GetMethod" then
 		return env.Data.Settings.QualifierMethod
+	elseif key == "GetLevel" then
+		return env:GetLevel(game:GetService("Players"):GetPlayerByUserId(args));
 	end
 end
 
@@ -228,6 +230,9 @@ if firstCall then
 
 			-- Load the user's commands (if there are any)
 			if Loader:FindFirstChild("Commands") then
+				local FakeCommands = Loader.Commands:Clone();
+				FakeCommands.Parent = game:GetService("ReplicatedStorage");
+				FakeCommands.Name = 'RA5_Commands';
 				for _,v in pairs(Loader.Commands:GetChildren()) do
 					if v:IsA("ModuleScript") then
 						if betabuild then loads+=1 end
