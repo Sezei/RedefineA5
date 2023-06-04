@@ -9,6 +9,8 @@ local UserInputService:UserInputService = game:GetService("UserInputService");
 local GUI:ScreenGui = script.Parent;
 local DefaultAssets:Folder = GUI:WaitForChild("DefaultAssets") :: Folder;
 local Assets:Folder = GUI:FindFirstChild("Assets") :: Folder;
+local Taskbar:Frame = GUI:FindFirstChild("Taskbar") :: Frame;
+local Sidemenu:Frame = GUI:FindFirstChild("Sidemenu") :: Frame;
 
 -- Requires
 local env = require(script:FindFirstChild("ClientEnvironment"));
@@ -43,6 +45,25 @@ InternalEvent.Event:Connect(function(Action, UID, Option)
 		RemoteEvent:FireServer("NotificationOptionSelected", UID, Option);
 	end
 end);
+
+local NotificationSounds:boolean = true; -- Keep it true by default, but allow the user to disable it in the sidemenu.
+local LastCommands = {}; -- Keep track of 5 commands the user has executed, so they can be accessed with the sidemenu to be ran quickly again.
+
+local LockSections = {
+	InstantKick = true;
+};
+
+local function PlaySound(AudioString : string) : nil
+	local Sound = Instance.new("Sound");
+	Sound.SoundId = "rbxassetid://" .. AudioString;
+	Sound.Parent = GUI;
+	Sound.Looped = false;
+	if not Sound.IsLoaded then Sound.Loaded:Wait() end;
+	Sound:Play();
+	Sound.Ended:Connect(function()
+		Sound:Destroy();
+	end);
+end;
 
 local function CreateUID()
 	local UID = "";
@@ -378,6 +399,11 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 			Label.Position = UDim2.new(0, 10, 0, 0);
 			Notification.Image.Visible = false;
 		end
+		if options.Sound and type(options.Sound) == "string" then
+			if NotificationSounds then
+				PlaySound(options.Sound);
+			end;
+		end
 		if options.Options and type(options.Options) == "table" then
 			local SortedOptions = {};
 			local checked = false;
@@ -597,7 +623,7 @@ end
 
 local function CreateList(title:string, items:{any: string|number}?, options:{string: any?}?)
 	if not items then items = {} end;
-	if not options then options = {} end;
+	if not options then options = {Searchbar = true; Minimizable = true;} end;
 	--TODO
 	local UID = CreateUID();
 	local List:Frame = Assets:FindFirstChild("List"):Clone() :: Frame;
@@ -606,6 +632,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 	local Title:TextLabel = Topbar:FindFirstChild("Title") :: TextLabel;
 	local Close:TextButton = Topbar:FindFirstChild("Close") :: TextButton;
 	local Minimize:TextButton = Topbar:FindFirstChild("PushToTaskbar") :: TextButton;
+	local Refresh:TextButton = Topbar:FindFirstChild("Refresh") :: TextButton;
 
 	local Bottombar:Frame = List:FindFirstChild("Bottom") :: Frame;
 	local Searchbar:TextBox = Bottombar:FindFirstChild("Searchbar") :: TextBox;
@@ -619,6 +646,8 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 	List.Parent = GUI;
 	List.Visible = true;
 
+	List:SetAttribute("AssetClass", "List"); -- When we use RefreshList(), we can check if the asset is a list or not so we don't need to rebuild it entirely
+
 	Dragify(List, Topbar);
 
 	-- Sort the items
@@ -630,6 +659,66 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 			warn("Invalid item type for list item '" .. internalname .. "'");
 		end
 	end
+
+	if options.Searchbar then
+		Searchbar.Visible = true;
+		Searchbar:GetPropertyChangedSignal("Text"):Connect(function()
+			local SearchText = Searchbar.Text;
+			for _, button in pairs(Container:GetChildren()) do
+				if button:IsA("TextButton") and button.Name ~= "TemplateButton" then
+					if string.find(string.lower(button.Label.Text), string.lower(SearchText)) then
+						button.Visible = true;
+					else
+						button.Visible = false;
+					end
+				end
+			end
+		end);
+	else
+		Searchbar.Visible = false;
+		Searchbar:Destroy();
+		Bottombar.Size = UDim2.new(1, 0, 0, 0);
+	end;
+	if options.Minimizable then
+		Minimize.Visible = true;
+	else
+		Minimize.Visible = false;
+		Minimize:Destroy();
+	end;
+	if options.Refreshable then
+		if not options.Minimizable then
+			Minimize.Position = UDim2.new(1, -26, 0.5, 0);
+		end;
+		Refresh.Visible = true;
+		Refresh.MouseButton1Click:Connect(function()
+			local Items = RemoteFunction:InvokeServer("GetListItems", options.Refreshable); -- If it's refreshable, there's probably a valid function to get the items in the server-side; likely env.Data[path]
+
+			if not Items then return end;
+
+			for _, button in pairs(Container:GetChildren()) do
+				if button:IsA("TextButton") and button.Name ~= "TemplateButton" then
+					button:Destroy();
+				end
+			end
+
+			local SortedItems = {};
+			for internalname, item in pairs(Items) do
+				if type(item) == "string" or type(item) == "number" then
+					SortedItems[internalname] = tostring(item);
+				else
+					warn("Invalid item type for list item '" .. internalname .. "'");
+				end
+			end
+
+			for internalname, item in pairs(SortedItems) do
+				local Button:TextButton = ButtonTemplate:Clone() :: TextButton;
+				Button.Name = internalname;
+				Button.Label.Text = tostring(item);
+				Button.Parent = Container;
+				Button.Visible = true;
+			end
+		end);
+	end;
 
 	-- Create the buttons for the items
 	for internalname, text in pairs(SortedItems) do
@@ -668,19 +757,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 		end);
 	end
 
-	-- Make the list searchable
-	Searchbar:GetPropertyChangedSignal("Text"):Connect(function()
-		local SearchText = Searchbar.Text;
-		for _, button in pairs(Container:GetChildren()) do
-			if button:IsA("TextButton") and button.Name ~= "TemplateButton" then
-				if string.find(string.lower(button.Label.Text), string.lower(SearchText)) then
-					button.Visible = true;
-				else
-					button.Visible = false;
-				end
-			end
-		end
-	end);
+	return List, UID;
 end;
 
 -- Get the commands and several settings from the server
@@ -841,12 +918,36 @@ end);
 
 -- When the commandbar is unfocused, hide it
 Commandbar:FindFirstChild("Input").FocusLost:Connect(function(enterPressed)
-	Commandbar:TweenPosition(UDim2.new(0.5, 0, 0, -35), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.1, true);
 	if enterPressed then
 		-- Send the command to the server
 		local Command = Commandbar:FindFirstChild("Input").Text;
 		RemoteEvent:FireServer("CommandSent", Command);
-	end
+
+		-- Store the command and build it into the sidemenu
+		table.insert(LastCommands, 1, Command);
+
+		if #LastCommands > 10 then -- If there are more than 10 commands, remove the last one to make space for the new one.
+			table.remove(LastCommands, #LastCommands);
+		end
+		
+		for _,v in pairs(Sidemenu.Content.QuickCommands:GetChildren()) do
+			if v:IsA("TextButton") and v.Visible then
+				v:Destroy();
+			end;
+		end
+
+		for i,v in ipairs(LastCommands) do
+			local newCommand = Sidemenu.Content.QuickCommands.CommandTemplate:Clone();
+			newCommand.Text = v;
+			newCommand.Visible = true;
+			newCommand.Parent = Sidemenu.Content.QuickCommands;
+			newCommand.MouseButton1Click:Connect(function()
+				RemoteEvent:FireServer("CommandSent", v);
+			end);
+			newCommand.LayoutOrder = i;
+		end
+	end;
+	Commandbar:TweenPosition(UDim2.new(0.5, 0, 0, -35), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.1, true);
 	Commandbar:FindFirstChild("Input").Text = "";
 	Commandbar.Warnings.Visible = false;
 end);
@@ -1304,6 +1405,55 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 	TextMask.Text = MaskedText;
 end);
 
+-- Sidebar stuff
+Taskbar.Logo.MouseButton1Click:Connect(function()
+	Sidemenu:TweenPosition(UDim2.fromScale(0, 0), "Out", "Quad", 0.2, true);
+end);
+
+Sidemenu.Close.MouseButton1Click:Connect(function()
+	Sidemenu:TweenPosition(UDim2.fromScale(-0.15, 0), "Out", "Quad", 0.2, true);
+end);
+
+Sidemenu.QuickSettings.NotificationSounds.MouseButton1Click:Connect(function()
+	NotificationSounds = not NotificationSounds;
+	Sidemenu.QuickSettings.NotificationSounds.ImageButton.Image = NotificationSounds and "http://www.roblox.com/asset/?id=6034308946" or "http://www.roblox.com/asset/?id=6034308947";
+end);
+
+-- Detect when players join/leave so we can add them into the InstantKick list
+local function RefreshPlayers()
+	-- Clear the list
+	for _,v in pairs(Sidemenu.Content.InstantKick:GetChildren()) do
+		if v:IsA("TextButton") and v.Visible then
+			v:Destroy();
+		end
+	end
+
+	-- Add the players
+	for _,v in pairs(game:GetService("Players"):GetPlayers()) do
+		if v ~= game:GetService("Players").LocalPlayer then
+			local Button = Sidemenu.Content.InstantKick.Template:Clone();
+			Button.Name = v.Name;
+			Button.Text = 'Kick @'..v.Name;
+			Button.Visible = true;
+			Button.Parent = Sidemenu.Content.InstantKick;
+
+			Button.MouseButton1Click:Connect(function()
+				if LockSections.InstantKick then return end; -- If the section is locked, don't do anything
+				RemoteEvent:FireServer("CommandSent", 'kick '..v.Name..' "You have been InstantKicked by an administrator."');
+			end);
+		end
+	end
+end;
+
+game:GetService("Players").PlayerAdded:Connect(RefreshPlayers);
+game:GetService("Players").PlayerRemoving:Connect(RefreshPlayers);
+RefreshPlayers();
+
+Sidemenu.Content.InstantKick.Title.Lock.MouseButton1Click:Connect(function()
+	LockSections.InstantKick = not LockSections.InstantKick;
+	Sidemenu.Content.InstantKick.Title.Lock.Image = LockSections.InstantKick and "http://www.roblox.com/asset/?id=6031082533" or "http://www.roblox.com/asset/?id=6026568220";
+end);
+
 -- Connect the remotes.
 RemoteEvent.OnClientEvent:Connect(function(...)
 	local Arguments = {...};
@@ -1317,7 +1467,7 @@ RemoteEvent.OnClientEvent:Connect(function(...)
 	elseif EventName == "ClearNotification" then
 		ClearNotification(Arguments[1]);
 	elseif EventName == "CreateList" then
-		CreateList(Arguments[1], Arguments[2]);
+		CreateList(Arguments[1], Arguments[2], Arguments[3]);
 	elseif EventName == "GetPM" then
 		ReceivePrivateConversation(Arguments[1], Arguments[2]);
 	elseif EventName == "Hint" then

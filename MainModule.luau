@@ -23,11 +23,22 @@ env.InStudio = game:GetService("RunService"):IsStudio();
 
 -- Create essential signals
 env.Signals = {};
-
 env.Signals.JoinEvent = env.SignalHandler.new() -- When a player is successfully handled, this will be fired; Event(PlayerInstance)
 env.Signals.ChatProcessed = env.SignalHandler.new() -- When a chat message has been processed, this will be fired; Event(PlayerInstance, Message:string)
 env.Signals.ErrorRaised = env.SignalHandler.new() -- When an error happens internally, this will be fired; Event(Error:string)
-env.Signals.CommandProcessed = env.SignalHandler.new() -- When a command is run, this will be fired. Better documentation in Github.
+
+-- DEPRECATED! Warn the user that this is deprecated if they use it.
+env.Signals.Processed = env.SignalHandler.new(); -- When a command has already been ran, this will be fired.
+
+
+-- Hooks; Can determine the output
+env.Hooks = {
+	Command = {};
+};
+
+env.Hooks.Command.PreProcess = {}; -- Runs if the engine thinks this is a command (message begins with the prefix) -> Environment, Executor:Player, Command:string, Arguments:table{string}, Console:boolean
+env.Hooks.Command.PostProcess = {}; -- Runs after the command arguments are parsed -> Environment, Executor:Player, Command:CommandData, Arguments:table{parsed arguments}, Console:boolean
+env.Hooks.Command.Ran = {}; -- Supersedes Signals.Processed; Runs after the command has been ran -> Environment, RunContext:table{CommandData, Arguments, Keys, etc.}
 
 -- Check to see if this is a betabuild
 if script:FindFirstChild("THIS IS A BETA BUILD!") then

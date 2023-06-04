@@ -132,6 +132,30 @@ return function(env, player, msg, console)
 			local args = ArgSplit(msg:sub(#env.Data.Settings.Prefix+1));
 			local cmd = string.lower(args[1]);
 			table.remove(args,1);
+
+			for _,v in pairs(env.Hooks.Command.PreProcess) do
+				local success, response = pcall(function() return v(env, player, cmd, args, console) end);
+
+				if not success then warn('Redefine:A | PreProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PreProcess: with error; {response}`}) end;
+				if type(response)=='nil' then continue end;
+
+				if type(response) == "table" then
+					if response.Cancel then -- Cancel the command.
+						return
+					end
+					if response.Command then -- Change the command
+						cmd = response.Command
+					end
+					if response.Arguments then -- Change the arguments
+						args = tostring(response.Arguments)
+					end
+				elseif type(response)=='boolean' then
+					if response == false then -- Cancel the command.
+						return
+					end
+				end;
+			end;
+
 			if env.Commands[cmd] or env.Aliases[cmd] then
 				local command = env.Commands[cmd] or env.Aliases[cmd];
 				-- Check what level the player is
@@ -656,11 +680,31 @@ return function(env, player, msg, console)
 					end
 				end
 
+				for _,v in pairs(env.Hooks.Command.PostProcess) do
+					local success, response = pcall(function() return v(env, player, cmd, sortedarguments, console) end);
+	
+					if not success then warn('Redefine:A | PostProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PostProcess: with error; {response}`}) end;
+					if type(response)=='nil' then continue end;
+	
+					if type(response) == "table" then
+						if response.Cancel then -- Cancel the command.
+							return
+						end
+						if response.Arguments then -- Change the arguments
+							sortedarguments = response.Arguments
+						end
+					elseif type(response)=='boolean' then
+						if response == false then -- Cancel the command.
+							return
+						end
+					end;
+				end;
+
 				-- Run the command
 				-- Check if the command is ran with compatibility mode
 				local success,ret
 				local compatibility = false;
-				if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) or (env.RA4C and env.RA4C[command.Name:lower()]) then
+				if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) then
 					compatibility = true;
 					if sortedarguments[1] then
 						table.insert(sortedarguments,1,command.Name);
@@ -696,7 +740,23 @@ return function(env, player, msg, console)
 					end)
 
 					if ret or typeof(ret)=='boolean' then
-						env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = type(ret) == 'table' and ret or type(ret) == 'boolean' and {Success = ret; Message = "Ran the command!"}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+						local runcontext = {
+							Command = command;
+							Compatibility = compatibility;
+							Returned = ret;
+							Keys = commandkeys;
+							Arguments = sortedarguments;
+							Executor = player;
+							Source = console and "console" or "chat";
+						};
+						-- Deprecated; Use Hooks.Command.Ran instead
+						env.Signals.CommandProcessed:Fire(player, command.Name, runcontext);
+
+						for _,v in pairs(env.Hooks.Command.Ran) do
+							local success, error = pcall(function() return v(env, runcontext) end);
+		
+							if not success then warn('Redefine:A | CommandRan Hook error: ' .. error); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: CommandRan: with error; {error}`}) end;
+						end
 
 						if typeof(ret) == 'boolean' then
 							ret = {
