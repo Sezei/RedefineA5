@@ -90,16 +90,29 @@ local function FindPlayers(env, Names, Executor) -- Function that finds players 
 	return newmatches -- Return the matches.
 end
 
+RunningCommands = {} -- Table that will contain all the threads of the running commands.
+-- Running Command Thread Template;
+--[[
+	{
+		Command = Command;
+		Thread = Thread;
+		SpawnTime = tick();
+		Executor = Player;
+	}
+]]
+
 return function(env, player, msg, console)
+	if not env.RunningCommands then env.RunningCommands = RunningCommands end;
+
 	-- Check if the player used /e for the command.
 	local originalmsg = msg;
 	if not console then
 		env.Signals.ChatProcessed:Fire(player,originalmsg)
 	end
-
+	
 	if msg:sub(1,2) == "/e" and env.Data.Settings.SilentEnabled then
 		console = true; -- Pretend like it was sent from a command bar.
-		msg = msg:sub(3);
+		msg = msg:sub(4);
 	end
 
 	if not console then
@@ -128,8 +141,13 @@ return function(env, player, msg, console)
 	end;
 
 	local success, err = pcall(function()
-		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix then
-			local args = ArgSplit(msg:sub(#env.Data.Settings.Prefix+1));
+		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix or msg:sub(1,4) == "r:a_" then
+			local args;
+			if msg:sub(1,4) == "r:a_" then
+				args = ArgSplit(msg:sub(5));
+			else
+				args = ArgSplit(msg:sub(#env.Data.Settings.Prefix+1));
+			end;
 			local cmd = string.lower(args[1]);
 			table.remove(args,1);
 
@@ -682,10 +700,10 @@ return function(env, player, msg, console)
 
 				for _,v in pairs(env.Hooks.Command.PostProcess) do
 					local success, response = pcall(function() return v(env, player, cmd, sortedarguments, console) end);
-	
+
 					if not success then warn('Redefine:A | PostProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PostProcess: with error; {response}`}) end;
 					if type(response)=='nil' then continue end;
-	
+
 					if type(response) == "table" then
 						if response.Cancel then -- Cancel the command.
 							return
@@ -702,87 +720,96 @@ return function(env, player, msg, console)
 
 				-- Run the command
 				-- Check if the command is ran with compatibility mode
-				local success,ret
-				local compatibility = false;
-				if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) then
-					compatibility = true;
-					if sortedarguments[1] then
-						table.insert(sortedarguments,1,command.Name);
-					end
-					success,ret = pcall(function() return command.OnRun(player, sortedarguments,env); end)
-				else
-					success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
-				end;
-				if not success then
-					table.insert(env.Data.Logs.Errors,{os.time(),"Command Execution Failed: "..cmd..' with error "'..ret..'"'});
-					if not compatibility then
-						env.RemoteEvent:FireClient(player,"Notify","An error has occured while attempting to run the command; "..ret,{
-							Type = "critical";
-							Image = "http://www.roblox.com/asset/?id=6031071053";
-							Options = {
-								"Got it";
-							};
-						});
+				local Thread = task.spawn(function()
+					local success,ret
+					local compatibility = false;
+					if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) then
+						compatibility = true;
+						if sortedarguments[1] then
+							table.insert(sortedarguments,1,command.Name);
+						end
+						success,ret = pcall(function() return command.OnRun(player, sortedarguments,env); end)
 					else
-						env.RemoteEvent:FireClient(player,"Notify","Command is not compatible; "..ret,{
-							Type = "critical";
-							Image = "http://www.roblox.com/asset/?id=6026568192";
-							Options = {
-								"Got it";
-							};
-						});
+						success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
 					end;
-					env.Signals.ErrorRaised:Fire("Command Execution Failed: "..cmd..' with error "'..ret..'"');
-				else
-					pcall(function() -- Those are destined to fail if the command doesn't use cooldowns, but we don't want to crash if they don't; Doesn't do anything if the command doesn't use cooldowns.
-						command.LastRun = tick();
-						command.LastRunBy[player.UserId] = tick();
-					end)
-
-					if ret or typeof(ret)=='boolean' then
-						local runcontext = {
-							Command = command;
-							Compatibility = compatibility;
-							Returned = ret;
-							Keys = commandkeys;
-							Arguments = sortedarguments;
-							Executor = player;
-							Source = console and "console" or "chat";
-						};
-						-- Deprecated; Use Hooks.Command.Ran instead
-						env.Signals.Processed:Fire(player, command.Name, runcontext);
-
-						for _,v in pairs(env.Hooks.Command.Ran) do
-							local success, error = pcall(function() return v(env, runcontext) end);
-		
-							if not success then warn('Redefine:A | CommandRan Hook error: ' .. error); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: CommandRan: with error; {error}`}) end;
-						end
-
-						if typeof(ret) == 'boolean' then
-							ret = {
-								Success = ret;
-							}
-							ret.Message = ret.Success and 'Command '..command.Name..' returned a success' or 'Command '..command.Name..' returned a failure';
+					if not success then
+						table.insert(env.Data.Logs.Errors,{os.time(),"Command Execution Failed: "..cmd..' with error "'..ret..'"'});
+						if not compatibility then
+							env.RemoteEvent:FireClient(player,"Notify","An error has occured while attempting to run the command; "..ret,{
+								Type = "critical";
+								Image = "http://www.roblox.com/asset/?id=6031071053";
+								Options = {
+									"Got it";
+								};
+							});
+						else
+							env.RemoteEvent:FireClient(player,"Notify","Command is not compatible; "..ret,{
+								Type = "critical";
+								Image = "http://www.roblox.com/asset/?id=6026568192";
+								Options = {
+									"Got it";
+								};
+							});
 						end;
-
-						if ret.Success == true then
-							env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
-								Timeout = 10;	
-							});
-						elseif ret.Success == false then
-							env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
-								Type = "warning";
-								Timeout = 10;
-							});
-						end
+						env.Signals.ErrorRaised:Fire("Command Execution Failed: "..cmd..' with error "'..ret..'"');
 					else
-						env.Signals.Processed:Fire(player, command.Name, {Command = command, Returned = {Success = true; Message = "The command has not returned anything."}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+						pcall(function() -- Those are destined to fail if the command doesn't use cooldowns, but we don't want to crash if they don't; Doesn't do anything if the command doesn't use cooldowns.
+							command.LastRun = tick();
+							command.LastRunBy[player.UserId] = tick();
+						end)
 
-						if compatibility then
-							print("Command returned without a response");
+						if ret or typeof(ret)=='boolean' then
+							local runcontext = {
+								Command = command;
+								Compatibility = compatibility;
+								Returned = ret;
+								Keys = commandkeys;
+								Arguments = sortedarguments;
+								Executor = player;
+								Source = console and "console" or "chat";
+							};
+							-- Deprecated; Use Hooks.Command.Ran instead
+							env.Signals.CommandProcessed:Fire(player, command.Name, runcontext);
+
+							for _,v in pairs(env.Hooks.Command.Ran) do
+								local success, error = pcall(function() return v(env, runcontext) end);
+
+								if not success then warn('Redefine:A | CommandRan Hook error: ' .. error); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: CommandRan: with error; {error}`}) end;
+							end
+
+							if typeof(ret) == 'boolean' then
+								ret = {
+									Success = ret;
+								}
+								ret.Message = ret.Success and 'Command '..command.Name..' returned a success' or 'Command '..command.Name..' returned a failure';
+							end;
+
+							if ret.Success == true then
+								env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
+									Timeout = 10;	
+								});
+							elseif ret.Success == false then
+								env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
+									Type = "warning";
+									Timeout = 10;
+								});
+							end
+						else
+							env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = {Success = true; Message = "The command has not returned anything."}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
+
+							if compatibility then
+								print("Command returned without a response");
+							end
 						end
 					end
-				end
+				end);
+
+				table.insert(RunningCommands,{
+					Command = command;
+					Thread = Thread;
+					SpawnTime = tick();
+					Executor = player;
+				});
 			end
 		end
 	end);

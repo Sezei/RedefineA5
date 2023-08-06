@@ -1,4 +1,5 @@
 local Market = game:GetService("MarketplaceService");
+local BadgeService = game:GetService("BadgeService");
 
 return function(env, player)
 	-- Check if the provided player is a player instance.
@@ -105,15 +106,37 @@ return function(env, player)
 							end;
 						end;
 					end;
+					
+					if type(value.BadgeId) == "number" then
+						-- 🐟 don't ask
+						if BadgeService:UserHasBadgeAsync(player.UserId, value.BadgeId) then
+							if FoundLevel < Level then
+								FoundLevel = Level;
+								FoundBase = not value.MarkAsTemporary;
+								IsAdmin = Data.Admin or false;
+							end
+						end
+					end
 				end;
-
+				
+				-- Check for premium.
+				if key == "Premium" then
+					if player.MembershipType == Enum.MembershipType.Premium then
+						if FoundLevel < Level then
+							FoundLevel = Level;
+							IsAdmin = Data.Admin or false;
+						end
+						FoundBase = value;
+					end;
+				end;
+				
 				-- Check for the default flag.
 				if key == "Default" then
 					if FoundLevel < Level then
 						FoundLevel = Level;
 						IsAdmin = Data.Admin or false;
+						FoundBase = false; -- default will never be a base admin.
 					end;
-					FoundBase = value;
 				end;
 			end;
 		end;

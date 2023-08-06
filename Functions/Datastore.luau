@@ -101,6 +101,7 @@ end
 
 --Module
 function Module(name,env,...)
+	table.insert(env.Data.Logs.System, {os.time(), "Datastore", "Listening to category "..name});
 	if not api then api = env end;
 
 	if privateserver then -- Sandbox the datastore to the private server's owner ID.
@@ -119,6 +120,7 @@ function Module(name,env,...)
 	DataCategory.Store = dataStoreSvc:GetDataStore(name)
 	DataCategory.Name = name
 	function DataCategory:Save(key,data)
+		table.insert(env.Data.Logs.System, {os.time(), "Datastore", name.."; Saving to "..key});
 		if type(key) ~= "string" then error(key,"Even Easier Datastore | Expected string, got "..type(key)) end
 		--Overwrite old data so we don't waste precious requests
 		if (tasks[key]) then tasks[key].Data = data return tasks[key] end
@@ -173,6 +175,7 @@ function Module(name,env,...)
 	end
 
 	function DataCategory:Update(key,updateFunc)
+		table.insert(env.Data.Logs.System, {os.time(), "Datastore", name.."; Updating "..key});
 		--Overwrite old data so we don't waste precious requests
 		if (tasks[key]) then 
 			if (tasks[key].Data == nil) then
@@ -227,6 +230,7 @@ function Module(name,env,...)
 	end
 
 	function DataCategory:Load(key)
+		table.insert(env.Data.Logs.System, {os.time(), "Datastore", name.."; Loaded from "..key});
 		if (tasks[key]) then return tasks[key] end
 
 		local Task = {}
@@ -292,6 +296,7 @@ function Module(name,env,...)
 	end
 
 	function DataCategory:Nullify(key)
+		table.insert(env.Data.Logs.System, {os.time(), "Datastore", name.."; Deleted "..key});
 		--Overwrite old data so we don't waste precious requests
 		if (tasks[key]) then tasks[key].Data = nil return tasks[key] end
 
@@ -333,6 +338,7 @@ function Module(name,env,...)
 	end
 
 	function DataCategory:Remove(key) -- Alias for Nullify
+		table.insert(env.Data.Logs.System, {os.time(), "Datastore", name.."; Deleted "..key});
 		--Overwrite old data so we don't waste precious requests
 		if (tasks[key]) then tasks[key].Data = nil return tasks[key] end
 

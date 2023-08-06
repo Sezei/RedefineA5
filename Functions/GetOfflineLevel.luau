@@ -66,7 +66,7 @@ return function(env, userid)
 						if FoundLevel < Level then
 							FoundLevel = Level;
 						end;
-						FoundBase = value;
+						FoundBase = false;
 					end;
 				end;
 			end;

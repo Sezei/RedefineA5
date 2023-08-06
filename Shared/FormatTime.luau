@@ -1,26 +1,56 @@
-return function(Time)
-	-- This function converts time from minutes to a string. (eg; 1 => 1m, 60 => 1h, 1440 => 1d, 1441 => 1d1m);
-	local Time = math.floor(Time);
-	local Months = math.floor(Time / 43200);
-	local Weeks = math.floor((Time - Months * 43200) / 10080);
-	local Days = math.floor((Time - Months * 43200 - Weeks * 10080) / 1440);
-	local Hours = math.floor((Time - Months * 43200 - Weeks * 10080 - Days * 1440) / 60);
-	local Minutes = math.floor(Time - Months * 43200 - Weeks * 10080 - Days * 1440 - Hours * 60);
-	local TimeString = "";
-	if Months > 0 then
-		TimeString ..= Months .. "mo";
+local mod = {}
+
+mod.ToTime = function(minutes)
+	local weeks = math.floor(minutes / 10080)
+	local days = math.floor((minutes - (weeks * 10080)) / 1440)
+	local hours = math.floor((minutes - (days * 1440) - (weeks * 10080)) / 60)
+	local mins = math.floor(minutes - (hours * 60) - (days * 1440) - (weeks * 10080))
+
+	local str = ""
+	if weeks > 0 then
+		str = str .. weeks .. "w "
 	end
-	if Weeks > 0 then
-		TimeString ..= Weeks .. "w";
+	if days > 0 then
+		str = str .. days .. "d "
 	end
-	if Days > 0 then
-		TimeString ..= Days .. "d";
+	if hours > 0 then
+		str = str .. hours .. "h "
 	end
-	if Hours > 0 then
-		TimeString ..= Hours .. "h";
+	if mins > 0 then
+		str = str .. mins .. "m"
 	end
-	if Minutes > 0 then
-		TimeString ..= Minutes .. "m";
+
+	return str
+end
+
+mod.FromTime = function(str)
+	local weeks = 0
+	local days = 0
+	local hours = 0
+	local mins = 0
+
+	for w in string.gmatch(str, "(%d+)w") do
+		weeks = tonumber(w)
 	end
-	return TimeString:sub(1,-2);
-end;
+	for d in string.gmatch(str, "(%d+)d") do
+		days = tonumber(d)
+	end
+	for h in string.gmatch(str, "(%d+)h") do
+		hours = tonumber(h)
+	end
+	for m in string.gmatch(str, "(%d+)m") do
+		mins = tonumber(m)
+	end
+
+	return (weeks * 10080) + (days * 1440) + (hours * 60) + mins
+end
+
+setmetatable(mod, {
+	-- For the old API, which didn't use .ToTime but just called the module as env.FormatTime(123)
+	-- We need to keep this for backwards compatibility since some modules probably still use it
+	__call = function(self, minutes)
+		return self.ToTime(minutes)
+	end
+})
+
+return mod

@@ -43,7 +43,7 @@ function module.table.invert(t)
 	for i,v in ipairs(t) do
 		new[#t-i+1] = v
 	end
-	
+
 	return new;
 end
 

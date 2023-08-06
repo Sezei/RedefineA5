@@ -49,10 +49,6 @@ end);
 local NotificationSounds:boolean = true; -- Keep it true by default, but allow the user to disable it in the sidemenu.
 local LastCommands = {}; -- Keep track of 5 commands the user has executed, so they can be accessed with the sidemenu to be ran quickly again.
 
-local LockSections = {
-	InstantKick = true;
-};
-
 local function PlaySound(AudioString : string) : nil
 	local Sound = Instance.new("Sound");
 	Sound.SoundId = "rbxassetid://" .. AudioString;
@@ -127,10 +123,12 @@ local QuickActionTabs = {
 		Buttons = {
 			Structuring = function(API)
 				for _,plr in pairs(Players:GetPlayers()) do
-					local Button = API:AddPlayerButton(plr, 'kick @'..plr.Name);
-					Button.MouseButton1Click:Connect(function()
-						API:RunCommand('kick @'..plr.Name);
-					end);
+					if plr ~= LocalPlayer then
+						local Button = API:AddPlayerButton(plr, 'kick @'..plr.Name);
+						Button.MouseButton1Click:Connect(function()
+							API:RunCommand('kick @'..plr.Name);
+						end);
+					end
 				end;
 			end;
 			Updates = {
@@ -1425,7 +1423,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 						end
 
 						if Type == 'safeplayer' then
-							if LocalPlayer <= StoredLevels[FindPlayers(arg)[1].UserId] then
+							if LocalLevel <= StoredLevels[FindPlayers(arg)[1].UserId] then
 								-- Add a warning
 								local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
 								Warning.Name = "Warning" .. argnum;
@@ -1436,7 +1434,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 						elseif Type == 'safeplayers' then
 							local found = false;
 							for i,v in pairs(FindPlayers(arg)) do
-								if LocalPlayer <= StoredLevels[v.UserId] then
+								if LocalLevel <= StoredLevels[v.UserId] then
 									found = true;
 									break;
 								end
@@ -1555,6 +1553,8 @@ for Key,TabData in pairs(QuickActionTabs) do
 	Tab.Title.Text = TabData.Tab.Title;
 	Tab.Description.Text = TabData.Tab.Description;
 	Tab.BackgroundColor3 = TabData.Tab.Color or Color3.fromRGB(0, 0, 0);
+	
+	Tab:SetAttribute("Locked",TabData.Tab.Locked);
 
 	if TabData.Tab.Locked then
 		Tab.Title.Lock.Visible = true;
@@ -1562,7 +1562,7 @@ for Key,TabData in pairs(QuickActionTabs) do
 			locked = not locked;
 			Tab.Title.Lock.Image = locked and "http://www.roblox.com/asset/?id=6031082533" or "http://www.roblox.com/asset/?id=6026568220";
 		end);
-	end
+	end;
 
 	-- Go through all of the actions
 	TabData.Buttons.Structuring(QuickActionAPI);

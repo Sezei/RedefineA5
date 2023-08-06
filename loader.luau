@@ -11,6 +11,8 @@ Info regarding the new R:A5 is not yet available!
 In order to make everything feel refreshed, the whole loader has been remade; hence the lack of settings.
 ]]
 
+-- In order to make sure you're up-to-date with the loader; It's made for
+-- BUILD 95
 
 
 local AutoUpdate = { -- Used to determine how to update the system.
@@ -18,7 +20,7 @@ local AutoUpdate = { -- Used to determine how to update the system.
 	--
 	--	false: Get the MainModule from the script --> make sure there's a module script in the loader named "MainModule" with MainCommands and MainLanguages attached.
 	--	true: Get the latest version.
-	false																	;
+	true																	;
 
 	-- Module ID
 	-- If you want to mod the Module, make sure to change this ModuleId to yours!

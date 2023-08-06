@@ -1,7 +1,7 @@
 local env = {
 	-- Version info
 	NxEngine = {
-		BuildId = 92;
+		BuildId = 95;
 	};
 
 	-- In-game Data
@@ -11,6 +11,7 @@ local env = {
 			Chat = {};		-- Template: {time, playerid, message}
 			Commands = {};	-- Template: {time, playerid, source, command}
 			Joins = {};		-- Template: {time, playerid, followed?}
+			System = {};	-- Template: {time, origin?, event}
 		};
 		Ingame = {Admins = {}; Bans = {}};
 	};

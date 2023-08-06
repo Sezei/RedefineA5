@@ -1,7 +1,18 @@
 local Handled = {};
 
 return function (env, player)
-	if Handled[player.UserId] == true then return end;
+	if Handled[player.UserId] == true then
+		local unhandlewarn = script.UnhandledWarn:Clone();
+		unhandlewarn.Parent = player.PlayerGui;
+		task.wait(1);
+		unhandlewarn.Disabled = false;
+		return 
+	end;
+	
+	local clone = env.MainModule.RedefineAUI:Clone();
+	clone:SetAttribute("nxversion",env.NxEngine.BuildId or "Nightly");
+	clone.Parent = player.PlayerGui;
+	
 	if not (type(env.Data.Logs.Joins) == "table") then env.Data.Logs.Joins = {} end
 	local success,ret = pcall(function() -- The actual join handling function; Wrapped in pcall to avoid errors on the main thread
 		if player.FollowUserId ~= 0 then
@@ -79,10 +90,6 @@ return function (env, player)
 
 		env:MetaPlayer(player); -- Create a MetaPlayer instance for the player.
 
-		local clone = env.MainModule.RedefineAUI:Clone();
-		clone:SetAttribute("nxversion",env.NxEngine.BuildId or "84");
-		clone.Parent = player.PlayerGui;
-
 		player.Chatted:Connect(function(msg)
 			table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg});
 			env:RunCommand(player,msg);
@@ -125,3 +132,8 @@ return function (env, player)
 		end
 	end)
 end
+
+--[[
+	Localscript Source;
+	game:GetService("TestService"):Done("Redefine:A | Unhandled join: Player is already handled?")
+]]

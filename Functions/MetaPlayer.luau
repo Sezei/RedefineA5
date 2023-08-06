@@ -4,6 +4,7 @@ local plrs = {}
 local senv; -- Stored Environment
 
 local function CreateMeta(env:any, plr:Player?)
+	table.insert(env.Data.Logs.System, {os.time(), "MetaPlayer", 'Assigned a new metaplayer instance for '..plr.UserId});
 	senv = env;
 	if not plr then return {} end;
 	if plrs[plr.UserId] then return plrs[plr.UserId] end;

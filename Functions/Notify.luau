@@ -67,7 +67,7 @@ return function(env, player, text, data)
 				UID = env.RemoteFunction:InvokeClient(player, "Notify", text, data);
 			end)
 			if not success then
-				table.insert(env.Logs.Errors, {
+				table.insert(env.Data.Logs.Errors, {
 					os.time(),
 					"Failed to send notification to player " .. player.Name .. " with error: " .. fail
 				});

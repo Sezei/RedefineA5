@@ -2,14 +2,6 @@
 
 local MessagingService = game:GetService("MessagingService");
 
-local function CreateUID()
-	local UID = "";
-	for _ = 1, 24 do
-		UID = UID .. string.char(math.random(65, 90));
-	end
-	return UID;
-end
-
 local module = {
 	Topics = {};
 	Listeners = {};
@@ -24,15 +16,13 @@ function module:Publish(topic,data) -- Alias for Push
 end;
 
 function module:Listen(topic,callback)
-	local listener = {
-        Topic = topic;
-        Callback = callback;
-        ID = CreateUID();
-    };
-    
-    table.insert(self.Listeners, listener);
-
-    return listener;
+	local listener = MessagingService:SubscribeAsync("RedefineA5",function(data)
+		if data.Data.Topic == topic then
+			callback(data.Data.Data);
+		end
+	end);
+	table.insert(self.Listeners,listener);
+	return listener;
 end;
 
 function module:Subscribe(topic,callback) -- Alias for Listen
@@ -41,10 +31,12 @@ end;
 
 function module:Unlisten(listener)
 	for i,v in ipairs(self.Listeners) do
-        if v.ID == listener.ID then
-            table.remove(self.Listeners,i);
-        end;
-    end;
+		if v == listener then
+			table.remove(self.Listeners,i);
+			listener:Disconnect();
+			break;
+		end
+	end
 end;
 
 function module:Unsubscribe(listener) -- Alias for Unlisten
@@ -72,13 +64,5 @@ function module:Wait(topic,callback)
 	callback(data);
 	return data;
 end;
-
-MessagingService:SubscribeAsync("RedefineA5",function(data)
-    for _,v in ipairs(module.Listeners) do
-        if v.Topic == data.Data.Topic then
-            v.Callback(data.Data.Data);
-        end
-    end
-end);
 
 return module;

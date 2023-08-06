@@ -19,7 +19,7 @@ Client.ClientFunctions = {
 
 
 -- Core functions of the client environment
-function Client:AddAsset(asset)
+function Client.AddAsset(env, asset)
 	-- Sends an asset to the client to either replace an existing one, or to add a new one.
 	-- @param asset: The asset to send to the client
 	-- @return void
@@ -32,7 +32,7 @@ function Client:AddAsset(asset)
 	-- Send the asset to the client(s);
 
 	-- Replace the asset in the default UI:
-	local UI = self.UI;
+	local UI = env.MainModule.RedefineAUI;
 	if UI then
 		local Assets = UI:FindFirstChild("Assets");
 		if not Assets then return end;

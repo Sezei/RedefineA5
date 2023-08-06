@@ -1,8 +1,9 @@
 return function (env, mod, v)
+	table.insert(env.Data.Logs.System, {os.time(), "CommandSC", "SC'ing "..v.Name});
 	if not (type(mod) == "table") then
 		env.warn(3,v.Name.." is not a valid command: Expected table, got "..typeof(mod));
 		return false;
-	elseif not (type(mod.Level) == "number") and not (type(mod.RunCapability) == 'function') then
+	elseif not (type(mod.Level) == "number") then
 		env.warn(3,v.Name.." is not a valid command: Missing Level value; Use 'Disabled = true' to disable the command");
 		return false;
 	elseif not (type(mod.OnRun) == "function") then
