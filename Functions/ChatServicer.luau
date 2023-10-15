@@ -22,7 +22,7 @@ return {_NxWrapper = function(env)
 			table.insert(env.Data.Logs.Chat,{os.time(),Speaker.Agent.UserId,Message});
 			env:RunCommand(Speaker.Agent,Message);
 		end);
-	end)
+	end);
 
 	return nil;
 end};

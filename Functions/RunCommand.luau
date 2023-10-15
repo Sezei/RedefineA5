@@ -1,5 +1,5 @@
-local function ArgSplit(str)
-	local args = {};
+local function ArgSplit(str:string)
+	local args:{string} = {};
 	local inquote = false;
 	local current = "";
 	for i = 1,#str do
@@ -24,7 +24,7 @@ local function FindPlayers(env, Names, Executor) -- Function that finds players 
 
 	-- Check if there are any ',' in the name. If there are, split the name into multiple names.
 	local names = string.split(Names,",")
-	local matches = {} -- Table that will contain all the matches.
+	local matches:{Player} = {} -- Table that will contain all the matches.
 	-- Loop through all the players.
 	for _,Name in pairs(names) do
 		for _,v in next,game:GetService("Players"):GetPlayers() do
@@ -80,8 +80,9 @@ local function FindPlayers(env, Names, Executor) -- Function that finds players 
 	end
 
 	-- Remove duplicates.
-	local newmatches = {}
-	for _,v in pairs(matches) do
+	local newmatches:{Player} = {}
+	
+	for _,v in matches do
 		if not table.find(newmatches,v) then
 			table.insert(newmatches,v)
 		end
@@ -90,7 +91,7 @@ local function FindPlayers(env, Names, Executor) -- Function that finds players 
 	return newmatches -- Return the matches.
 end
 
-RunningCommands = {} -- Table that will contain all the threads of the running commands.
+local RunningCommands = {} -- Table that will contain all the threads of the running commands.
 -- Running Command Thread Template;
 --[[
 	{
@@ -101,8 +102,22 @@ RunningCommands = {} -- Table that will contain all the threads of the running c
 	}
 ]]
 
-return function(env, player, msg, console)
+type Chatlog = {
+	Time:number;
+	UserId:number;
+	Message:string;
+};
+type Qualifier = {
+	name:string;
+	methods:{[string]:string};
+	maximumstrictness:number;
+	identifier:any;
+};
+
+return function(env, player:Player, msg:string, console:boolean)
 	if not env.RunningCommands then env.RunningCommands = RunningCommands end;
+	
+	msg = env.BetterBasics.string.fixnewchat(msg);
 
 	-- Check if the player used /e for the command.
 	local originalmsg = msg;
@@ -112,11 +127,15 @@ return function(env, player, msg, console)
 	
 	if msg:sub(1,2) == "/e" and env.Data.Settings.SilentEnabled then
 		console = true; -- Pretend like it was sent from a command bar.
-		msg = msg:sub(4);
+		msg = msg:sub(4) :: string;
 	end
 
 	if not console then
-		table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg})
+		--table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg})
+		table.insert(
+			env.Data.Logs.Chat,
+			{Time=os.time(); UserId=player.UserId; Message = msg} :: Chatlog
+		)
 	end
 	-- Since we got access to the env, we can start sorting the qualifiers.
 	if not sortedqualifiers then
@@ -125,7 +144,7 @@ return function(env, player, msg, console)
 		if selectedmethod == "mc" then selectedmethod = "minecraft"; end
 		if selectedmethod == "s" then selectedmethod = "simple"; end
 
-		sortedqualifiers = {};
+		sortedqualifiers = {} :: {Qualifier};
 		-- Check if the qualifier method is valid.
 		if not (selectedmethod == "sourcemod" or selectedmethod == "minecraft" or selectedmethod == "simple") then
 			warn("Invalid qualifier method selected. Defaulting to 'sourcemod'.");
@@ -811,6 +830,7 @@ return function(env, player, msg, console)
 					Executor = player;
 				});
 			end
+		return true;
 		end
 	end);
 

@@ -122,6 +122,10 @@ return function (env, mod, v)
 	if not (type(mod.Disabled) == "boolean") then -- If Disabled is true, the command will not be able to be ran in-game and will not show up in the command list
 		mod.Disabled = false;
 	end
+	if not (type(mod.Destructive) == "boolean") then -- Marks the command as destructive, which will prevent it from being ran in-game unless the user acknowledges this
+		mod.Destructive = false;
+		-- This part is WIP and a confirmation for it will be added in a later update!
+	end
 	if not (type(mod.Dependencies) == "table") then -- Dependencies are env variables that are required to be present for the command to run; Example; {GetLevel = true} will require the env variable GetLevel (env.GetLevel) to be present
 		mod.Dependencies = {};
 	end

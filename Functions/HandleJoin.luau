@@ -25,6 +25,7 @@ return function (env, player)
 
 		if env.Data.Settings.CloudAPI.UseBanlist then
 			local bandata = env.GlobalBanlist;
+			
 
 			if bandata then
 				if bandata[tostring(player.UserId)] then
@@ -36,8 +37,8 @@ return function (env, player)
 						-- The player was banned before, but the ban is no longer active. We will keep track on them using task.spawn.
 						task.spawn(function()
 							repeat 
-								task.wait(60)
-								pinfo = bandata[tostring(player.UserId)];
+								task.wait(25)
+								pinfo = env.GlobalBanlist[tostring(player.UserId)];
 							until pinfo.active or not player;
 							if pinfo.active and player then
 								player:Kick("\nSezei.me API\n----------------\n\nYou are cloud banned from all games with Sezei.me products.\n\nReason:\n"..pinfo.reason)
@@ -47,10 +48,10 @@ return function (env, player)
 				else
 					-- Player isn't banned, but it's better to still keep track on them using task.spawn in-case that changes.
 					task.spawn(function()
-						local pinfo = bandata[tostring(player.UserId)];
+						local pinfo = env.GlobalBanlist[tostring(player.UserId)];
 						repeat 
-							task.wait(120) -- Because they have no history of being banned, we can increase the check time from 60 seconds to 120 seconds because usually it means they have no reason to be checked again.
-							pinfo = bandata[tostring(player.UserId)];
+							task.wait(50) -- Because they have no history of being banned, we can increase the check time from 60 seconds to 120 seconds because usually it means they have no reason to be checked again.
+							pinfo = env.GlobalBanlist[tostring(player.UserId)];
 						until (pinfo and pinfo.active) or not player;
 						if pinfo.active and player then
 							player:Kick("\nSezei.me API\n----------------\n\nYou are cloud banned from all games with Sezei.me products.\n\nReason:\n"..pinfo.reason)

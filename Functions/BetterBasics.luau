@@ -57,6 +57,10 @@ function module.string.placeholder(origin,placeholders)
 	return s;
 end
 
+function module.string.fixnewchat(str)
+	return str:gsub("&#39;","'"):gsub("&quot;",'"'):gsub("&lt;","<"):gsub("&gt;",">"):gsub("&amp;","&") -- it simply fixes the new chat system roblox created
+end
+
 function module.bool.tobool(self)
 	if type(self) == 'nil' then
 		return false;

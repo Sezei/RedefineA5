@@ -12,10 +12,9 @@ local errorcodes = require(script.MainFunctions.ErrorCodes); -- Load the error c
 env.SignalHandler = require(script.Dependencies.Signal);
 
 -- Check if we're in studio (avoid loading VCSDK)
-if not game:GetService("RunService"):IsStudio() then
-	local VCSDK_Source = require(script.Dependencies.VCSDK); -- Thank you AsynchronousMatrix for granting permission to use this.
-	env.VCSDK = require(VCSDK_Source)
-end
+-- VCSDK is temporarily disabled due to an issue related to spatial voice;
+-- It will be re-enabled once Roblox releases an official API!
+-- Sorry!!
 
 -- Add for dependency check
 env.NotInStudio = not game:GetService("RunService"):IsStudio();
@@ -28,7 +27,7 @@ env.Signals.ChatProcessed = env.SignalHandler.new({Name = "ChatProcessed"}) -- W
 env.Signals.ErrorRaised = env.SignalHandler.new({Name = "ErrorRaised"}) -- When an error happens internally, this will be fired; Event(Error:string)
 
 -- DEPRECATED! Warn the user that this is deprecated if they use it.
-env.Signals.Processed = env.SignalHandler.new({Name = "Processed"; Deprecated = true; Supersededby = 'env.Hooks.Command.Ran'}); -- When a command has already been ran, this will be fired.
+env.Signals.CommandProcessed = env.SignalHandler.new({Name = "Processed"; Deprecated = true; Supersededby = 'env.Hooks.Command.Ran'}); -- When a command has already been ran, this will be fired.
 
 
 -- Hooks; Can determine the output
@@ -57,6 +56,7 @@ end
 -- Load the main functions
 for _,v in pairs(script.MainFunctions:GetChildren()) do
 	if v:IsA("ModuleScript") and v.Name ~= "BaseEnvironment" and v.Name ~= "ErrorCodes" then
+		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 		if betabuild then loads+=1 end
 		local success,mod = pcall(function() return require(v) end)
 		if success then
@@ -69,12 +69,13 @@ for _,v in pairs(script.MainFunctions:GetChildren()) do
 			warn('Redefine:A | Failed to compile module: '..v.Name..' with error "'..mod..'"');
 			table.insert(env.Data.Logs.Errors,{os.time(),"Module Compilation Failed: "..v.Name..' with error "'..mod..'"'});
 		end
-	end
+	end;
 end
 
 -- Load the Shared functions too
 for _,v in pairs(script.SharedFunctions:GetChildren()) do
 	if v:IsA("ModuleScript") then
+		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 		v:Clone().Parent = script.RedefineAUI.Main;
 
 		if betabuild then loads+=1 end
@@ -95,6 +96,7 @@ end
 -- Load the main commands
 for _,v in pairs(script.MainCommands:GetChildren()) do
 	if v:IsA("ModuleScript") then
+		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 		if betabuild then loads+=1 end
 		local success,mod = pcall(function() return require(v) end)
 		if success then
@@ -132,12 +134,19 @@ for _,v in pairs(script.MainCommands:GetChildren()) do
 			if not (type(env.Commands) == "table") then env.Commands = {} end
 
 			if load then
-				env.Commands[string.lower(mod.Name)] = mod;
-
 				-- There is a mod.OnLoad?
 				if type(mod.OnLoad) == "function" then
-					mod.OnLoad(env)
+					local success, err = pcall(function()
+						mod.OnLoad(env)
+					end)
+					
+					if not success then
+						warn('Redefine:A | Failed to load command: '..v.Name..'; because of a load error "'..err..'"');
+						continue;
+					end
 				end
+				
+				env.Commands[string.lower(mod.Name)] = mod;
 
 				-- Add the aliases
 				for _,v in pairs(mod.Aliases) do
@@ -152,6 +161,7 @@ for _,v in pairs(script.MainCommands:GetChildren()) do
 end
 
 -- Create the events
+table.insert(env.Data.Logs.System, {os.time(), nil, "Handling event creations"});
 env.RemoteEvent = Instance.new("RemoteEvent");
 env.RemoteEvent.Name = "NxRemoteEvent";
 env.RemoteEvent.Parent = game.ReplicatedStorage;
@@ -188,6 +198,7 @@ env["☕🗿"] = "coffee moai (hi aaron)";
 if firstCall then
 	firstCall = false
 	return function(Loader:Script,Settings:{[string]:any?})
+		table.insert(env.Data.Logs.System, {os.time(), nil, "Handling load."});
 		if not (typeof(Loader) == "Instance") then error("Loader must be an instance") end
 		if not Loader:IsA("Script") then error("Loader must be a script") end
 		-- Check if there's a settings module
@@ -212,6 +223,7 @@ if firstCall then
 			if Loader:FindFirstChild("Functions") then
 				for _,v in pairs(Loader.Functions:GetChildren()) do
 					if v:IsA("ModuleScript") then
+						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 						if betabuild then loads+=1 end
 						local success,mod = pcall(function() return require(v) end)
 						if success then
@@ -235,6 +247,7 @@ if firstCall then
 				FakeCommands.Name = 'RA5_Commands';
 				for _,v in pairs(Loader.Commands:GetChildren()) do
 					if v:IsA("ModuleScript") then
+						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 						if betabuild then loads+=1 end
 						local success,mod = pcall(function() return require(v) end)
 						if success then
@@ -349,10 +362,18 @@ if firstCall then
 							if not (type(env.Commands) == "table") then env.Commands = {} end
 
 							if load then
-								env.Commands[string.lower(mod.Name)] = mod;
 								if type(mod.OnLoad) == "function" then
-									mod.OnLoad(env)
+									local success, err = pcall(function()
+										mod.OnLoad(env)
+									end);
+									
+									if not success then
+										warn('Redefine:A | Failed to load command: '..v.Name..'; because of a load error "'..err..'"');
+										continue;
+									end
 								end
+								
+								env.Commands[string.lower(mod.Name)] = mod;
 
 								-- Add the credits
 								if not (type(env.Data.Credits) == "table") then env.Data.Credits = {} end
@@ -364,7 +385,9 @@ if firstCall then
 
 								-- Add the aliases
 								for _,v in pairs(mod.Aliases) do
-									env.Aliases[string.lower(v)] = mod;
+									if type(v)=='string' then
+										env.Aliases[string.lower(v)] = mod;
+									end;
 								end
 							end
 						else
@@ -402,6 +425,8 @@ if firstCall then
 
 		local LastCheck = tick(); -- Get time
 		task.spawn(function()
+			table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
+			
 			local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
 			if suc and dat and dat.success then
 				env.GlobalBanlist = dat;
@@ -412,6 +437,7 @@ if firstCall then
 			while task.wait() do
 				if (LastCheck + 20) <= tick() then
 					-- Check the banlist again to see if any bans have updated.
+					table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
 					local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
 					if suc and dat and dat.success then
 						env.GlobalBanlist = dat;
@@ -424,9 +450,11 @@ if firstCall then
 		end)
 
 		game.Players.PlayerAdded:Connect(function(player) -- Add a join event
+			table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId});
 			env:HandleJoin(player);
 		end);
 		for _,player in pairs(game.Players:GetPlayers()) do -- Check for already existing players
+			table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId});
 			env:HandleJoin(player);
 		end
 

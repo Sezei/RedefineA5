@@ -1,3 +1,5 @@
+-- This module is deprecated and will be superseded by GetLevel in the future.
+
 local Market = game:GetService("MarketplaceService");
 
 return function(env, userid)

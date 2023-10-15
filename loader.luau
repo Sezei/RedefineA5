@@ -12,7 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 95
+-- BUILD 101
 
 
 local AutoUpdate = { -- Used to determine how to update the system.

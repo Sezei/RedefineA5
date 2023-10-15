@@ -35,7 +35,7 @@ return function(env, player)
 				return HighestLevel, true, true; -- Return the highest level and mark as a base admin.
 			end
 		end
-
+		
 		local FoundBase = false;
 		local FoundLevel = 0;
 		local IsAdmin = false;
@@ -50,22 +50,13 @@ return function(env, player)
 				end;
 				
 				-- Check for UserId match
+				-- User overrides everything else.
 				if type(value) == "number" and value == player.UserId then
-					Set = true;
-					if FoundLevel < Level then
-						FoundLevel = Level;
-						IsAdmin = Data.Admin or true;
-					end;
-					FoundBase = true;
+					return Level, FoundBase, IsAdmin;
 				end;
 				-- Check for Name match
 				if type(value) == "string" and value == player.Name then
-					Set = true;
-					if FoundLevel < Level then
-						FoundLevel = Level;
-						IsAdmin = Data.Admin or true;
-					end;
-					FoundBase = true;
+					return Level, FoundBase, IsAdmin;
 				end;
 
 				-- Check Groups and Gamepasses
@@ -117,6 +108,16 @@ return function(env, player)
 							end
 						end
 					end
+				end;
+				
+				if key == "VIPOwner" then -- Gives VIP server owners admin based on the variable.
+					if game.PrivateServerOwnerId == player.UserId then
+						if FoundLevel < Level then
+							FoundLevel = Level;
+							FoundBase = false;
+							IsAdmin = Data.Admin or false;
+						end;
+					end;
 				end;
 				
 				-- Check for premium.

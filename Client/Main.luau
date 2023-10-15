@@ -702,6 +702,8 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 
 	local Container:ScrollingFrame = List:FindFirstChild("Content") :: ScrollingFrame;
 	local ButtonTemplate:TextButton = Container:FindFirstChild("TemplateButton") :: TextButton;
+	local RealButton = Container:FindFirstChild("TemplateRealButton");
+	local Description = Container:FindFirstChild("TemplateDescription");
 
 	List.Name = UID;
 	Title.Text = title;
@@ -784,40 +786,92 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 	end;
 
 	-- Create the buttons for the items
-	for internalname, text in pairs(SortedItems) do
-		local Button:TextButton = ButtonTemplate:Clone() :: TextButton;
-		Button.Name = internalname;
-		Button.Label.Text = text;
-		Button.Parent = Container;
-		Button.Visible = true;
+	for internalname, item in pairs(SortedItems) do
+		if type(item) == 'string' then
+			local Button:TextButton = ButtonTemplate:Clone() :: TextButton;
+			Button.Name = internalname;
+			Button.Label.Text = item;
+			Button.Parent = Container;
+			Button.Visible = true;
 
-		Button.Label.TextWrapped = true
-		Button.Label.TextTruncate = Enum.TextTruncate.AtEnd
-		Button.ClipsDescendants = true
+			Button.Label.TextWrapped = true
+			Button.Label.TextTruncate = Enum.TextTruncate.AtEnd
+			Button.ClipsDescendants = true
 
-		local toggle = false;
-		local debounce = false;
+			local toggle = false;
+			local debounce = false;
 
-		task.wait(); -- Wait for it to update (for some reason it doesn't update without it, hence the wait. @Roblox; Fix?)
-		Button.Label.Size = UDim2.new(1, -12, 0, 300); -- Attempt to get the textlabel's Y size
+			task.wait(); -- Wait for it to update (for some reason it doesn't update without it, hence the wait. @Roblox; Fix?)
+			Button.Label.Size = UDim2.new(1, -12, 0, 300); -- Attempt to get the textlabel's Y size
 
-		Button.MouseButton1Click:Connect(function()
-			-- Create a toggle to keep track of the state of the button; false = collapsed (default state), true = expanded
-			if debounce then return false end;
-			debounce = true;
-			toggle = not toggle -- Invert the toggle state
+			Button.MouseButton1Click:Connect(function()
+				-- Create a toggle to keep track of the state of the button; false = collapsed (default state), true = expanded
+				if debounce then return false end;
+				debounce = true;
+				toggle = not toggle -- Invert the toggle state
 
-			if toggle then -- If the toggle is true, expand the textlabel
-				-- Expand the button to match the label's Y size
-				Button:TweenSize(UDim2.new(1, 0, 0, Button.Label.TextBounds.Y + 14), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true);
-			else -- If the toggle is false, collapse the textlabel
-				Button:TweenSize(UDim2.new(1,-8,0,30), "Out", "Quad", 0.1, true);
+				if toggle then -- If the toggle is true, expand the textlabel
+					-- Expand the button to match the label's Y size
+					Button:TweenSize(UDim2.new(1, 0, 0, Button.Label.TextBounds.Y + 14), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true);
+				else -- If the toggle is false, collapse the textlabel
+					Button:TweenSize(UDim2.new(1,-8,0,30), "Out", "Quad", 0.1, true);
+				end
+
+				task.delay(0.3,function()
+					debounce = false;
+				end)
+			end);
+		elseif type(item) == 'table' then
+			if item.Type == "ClickText" then
+				local Button:TextButton = ButtonTemplate:Clone() :: TextButton;
+				Button.Name = internalname;
+				Button.Label.Text = item.Text;
+				Button.Parent = Container;
+				Button.Visible = true;
+
+				Button.Label.TextWrapped = true;
+				Button.Label.TextTruncate = Enum.TextTruncate.AtEnd;
+				Button.ClipsDescendants = true;
+				
+				if item.TextColor then
+					Button.Label.TextColor3 = item.TextColor;
+				end;
+
+				local toggle = false;
+				local debounce = false;
+
+				task.wait(); -- Wait for it to update (for some reason it doesn't update without it, hence the wait. @Roblox; Fix?)
+				Button.Label.Size = UDim2.new(1, -12, 0, 300); -- Attempt to get the textlabel's Y size
+
+				Button.MouseButton1Click:Connect(function()
+					-- Create a toggle to keep track of the state of the button; false = collapsed (default state), true = expanded
+					if debounce then return false end;
+					debounce = true;
+					toggle = not toggle -- Invert the toggle state
+
+					if toggle then -- If the toggle is true, expand the textlabel
+						-- Expand the button to match the label's Y size
+						Button:TweenSize(UDim2.new(1, 0, 0, Button.Label.TextBounds.Y + 14), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true);
+					else -- If the toggle is false, collapse the textlabel
+						Button:TweenSize(UDim2.new(1,-8,0,30), "Out", "Quad", 0.1, true);
+					end
+
+					task.delay(0.3,function()
+						debounce = false;
+					end)
+				end);
+			elseif item.Type == "Button" then
+				local Button = RealButton:Clone();
+				Button.Name = internalname;
+				Button.Button.Text = item.Text;
+				Button.Parent = Container;
+				Button.Visible = true;
+
+				Button.Button.MouseButton1Click:Connect(function()
+					RemoteEvent:FireServer("ExecuteCallbackAsClient", item.CallbackId);
+				end);
 			end
-
-			task.delay(0.3,function()
-				debounce = false;
-			end)
-		end);
+		end;
 	end
 
 	return List, UID;
