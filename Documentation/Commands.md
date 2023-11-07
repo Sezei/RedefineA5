@@ -40,7 +40,8 @@ return {
 	Cooldown = 0; -- Global Command Cooldown (Delay between the command being used by any user)
 	UserCooldown = 0; -- User Cooldown (Delay between the command being used by a single user)
 	Color = nil; -- Custom Color3 value for when using the Commandbar; Will show that color instead of Yellow when the command is valid
-	Dependencies = {}; -- Dependencies are env variables that are required to be present for the command to run; Example; {"GetLevel"} will require the env variable GetLevel (env.GetLevel) to be present
+	Destructive = false; -- Is the command destructive? (Will warn the user before executing)
+    Dependencies = {}; -- Dependencies are env variables that are required to be present for the command to run; Example; {"GetLevel"} will require the env variable GetLevel (env.GetLevel) to be present
 	
 	-- Checks who can run the command; Use @env and @Player to determine if the player has the ability to run it.
 	RunCapability = function(env, Player:Player) -- Checks if the users can even run the command in the first place. Return true to allow. (Replaces Level)
@@ -57,6 +58,11 @@ return {
 		
 	end;
 }
+```
+
+```diff
+! Note: After Build 103, the command handler has changed to use the new env:RegisterCommand function, which allows you to use the command handler without having to create modules for every command.
+! This can be used to make multiple commands within the same module, and is recommended for when you want to make commands that are used for the same thing such as un-something.
 ```
 
 Let's start this from the beginning;
@@ -86,6 +92,8 @@ Let's start this from the beginning;
 `UserCooldown` -> User Cooldown. This is a number, and is set to 0 by default. This is the delay between the command being used by the same user. This is useful for commands that can be abused, such as `!kick`, `!ban`, etc.
 
 `Color` -> Custom Color3 value for when using the Commandbar. This is a Color3 value, and is set to nil by default. This does not provide any use, but can help make your command stand out when using the Commandbar.
+
+`Destructive` -> Is the command destructive? This is a boolean value, and is set to false by default. This is used to warn the user before executing the command, and is useful for commands that can cause issues in the game, and might, inadvertedly, cause the game to sequence break if one exists.
 
 `Dependencies` -> Dependencies are env variables that are required to be present for the command to run. This is a table of strings, and is set to an empty table by default. Example; `{"GetLevel"}` will require the env variable `GetLevel` (env.GetLevel) to be present for the command to run. This is useful for when you want to make a command that requires a specific env variable to be present, such as `GetLevel`, `GetRank`, etc.
 

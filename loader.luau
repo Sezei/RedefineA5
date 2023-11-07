@@ -12,7 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 101
+-- BUILD 103
 
 
 local AutoUpdate = { -- Used to determine how to update the system.
@@ -129,7 +129,7 @@ settings.DefaultStrings = {
 	Kick = "You have been kicked from the server; <reason> | Moderator: <moderator>";
 };
 
--- RemoteTrap Settings;
+-- Remote Trap Settings;
 -- RemoteTrap is a feature that allows you to punish players for scraping the game.
 -- It is not recommended to disable this feature, but you can do so by setting Enabled to false.
 -- Punishments are executed when a player is detected scraping the game using old methods such as BackdoorLocator and such.
@@ -159,13 +159,13 @@ settings.CloudAPI = {
 	UseBanlist = true;
 }
 
--- UnsafeLoading;
+-- Unsafe Loading;
 -- This will force the engine to load modules unsafely using task.spawn.
 -- This is useful if you want Redefine:A to load *much* faster, but it isn't recommended to mess with this, as it could cause issues with custom commands & modules inserted into the environment.
 -- Only use this if Redefine:A takes more than 10 seconds to load in a live server (NOT STUDIO).
 settings.UnsafeLoading = false;
 
--- RelevelCommands;
+-- Relevel Commands;
 -- This is a feature that allows you to relevel some of the main commands without disabling the auto-updating feature.
 -- This is useful if you want to change the level of a command.
 -- This can also be used to disable a command by setting the level to 99 or some ridiculously high number such as math.huge.
@@ -173,9 +173,24 @@ settings.RelevelCommands = {
 	["somecommand"] = 99;
 };
 
--- SilentEnabled; (Default: true)
+-- Silent Enabled; (Default: true)
 -- If this is set to true, you will be able to run commands using /e {prefix}{command} without the command being shown in the chat.
 settings.SilentEnabled = true;
+
+-- Use TextChatService;
+-- Using the new TextChatService? This will help.
+settings.TextChatService = {
+	Enabled = true; -- Set this to false if you experience slowdown with loading the admin.
+	OnNotification = "Auto"; -- Valid options: Auto (default), Chat or Notification.
+};
+
+-- Disable Taskbar
+-- Note: This will disable the Quick Action menu..
+settings.DisableTaskbar = false; -- false by default.
+
+-- Send Level Notification
+-- This will send a notification to the players asking whether or not they want to see their commands.
+settings.SendLevelNotification = true;
 
 --[===[
 -- DEVELOPMENT TOOLS --
@@ -205,9 +220,6 @@ settings.EnableDebug = false;
 ------------------------------------
 --      You have been warned.     --
 ------------------------------------
-				----
-				----
-				----
 
 -- Hacky way to get into the creator marketplace without the fail stuff. ugh..
 

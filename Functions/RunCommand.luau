@@ -1,4 +1,4 @@
-local function ArgSplit(str:string)
+local function ArgSplit(str:string) : {string}
 	local args:{string} = {};
 	local inquote = false;
 	local current = "";
@@ -19,7 +19,7 @@ end
 
 local sortedqualifiers; -- To be sorted later.
 
-local function FindPlayers(env, Names, Executor) -- Function that finds players by name or displayname.
+local function FindPlayers(env, Names, Executor) : {Player}? -- Function that finds players by name or displayname.
 	if string.len(Names) == 0 then return nil end -- If the name is empty, return nil.
 
 	-- Check if there are any ',' in the name. If there are, split the name into multiple names.
@@ -81,7 +81,7 @@ local function FindPlayers(env, Names, Executor) -- Function that finds players 
 
 	-- Remove duplicates.
 	local newmatches:{Player} = {}
-	
+
 	for _,v in matches do
 		if not table.find(newmatches,v) then
 			table.insert(newmatches,v)
@@ -107,6 +107,7 @@ type Chatlog = {
 	UserId:number;
 	Message:string;
 };
+
 type Qualifier = {
 	name:string;
 	methods:{[string]:string};
@@ -114,9 +115,18 @@ type Qualifier = {
 	identifier:any;
 };
 
+type CommandData = {
+	
+};
+
+export type Command = {
+	
+	Disabled:boolean?;
+};
+
 return function(env, player:Player, msg:string, console:boolean)
 	if not env.RunningCommands then env.RunningCommands = RunningCommands end;
-	
+
 	msg = env.BetterBasics.string.fixnewchat(msg);
 
 	-- Check if the player used /e for the command.
@@ -124,7 +134,7 @@ return function(env, player:Player, msg:string, console:boolean)
 	if not console then
 		env.Signals.ChatProcessed:Fire(player,originalmsg)
 	end
-	
+
 	if msg:sub(1,2) == "/e" and env.Data.Settings.SilentEnabled then
 		console = true; -- Pretend like it was sent from a command bar.
 		msg = msg:sub(4) :: string;
@@ -158,8 +168,8 @@ return function(env, player:Player, msg:string, console:boolean)
 			end;
 		end;
 	end;
-
-	local success, err = pcall(function()
+	
+	local success:boolean, err:string? = pcall(function()
 		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix or msg:sub(1,4) == "r:a_" then
 			local args;
 			if msg:sub(1,4) == "r:a_" then
@@ -171,9 +181,10 @@ return function(env, player:Player, msg:string, console:boolean)
 			table.remove(args,1);
 
 			for _,v in pairs(env.Hooks.Command.PreProcess) do
-				local success, response = pcall(function() return v(env, player, cmd, args, console) end);
+				local success:boolean, response:{Cancel:boolean?;Command:string?;Arguments:{string}?} = pcall(function() return v(env, player, cmd, args, console) end);
 
 				if not success then warn('Redefine:A | PreProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PreProcess: with error; {response}`}) end;
+				
 				if type(response)=='nil' then continue end;
 
 				if type(response) == "table" then
@@ -830,7 +841,7 @@ return function(env, player:Player, msg:string, console:boolean)
 					Executor = player;
 				});
 			end
-		return true;
+			return true;
 		end
 	end);
 

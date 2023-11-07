@@ -26,6 +26,8 @@ env.Signals.JoinEvent = env.SignalHandler.new({Name = "JoinEvent"}) -- When a pl
 env.Signals.ChatProcessed = env.SignalHandler.new({Name = "ChatProcessed"}) -- When a chat message has been processed, this will be fired; Event(PlayerInstance, Message:string)
 env.Signals.ErrorRaised = env.SignalHandler.new({Name = "ErrorRaised"}) -- When an error happens internally, this will be fired; Event(Error:string)
 
+env.Signals.CommandRegistered = env.SignalHandler.new({Name = "CommandRegistered"})
+
 -- DEPRECATED! Warn the user that this is deprecated if they use it.
 env.Signals.CommandProcessed = env.SignalHandler.new({Name = "Processed"; Deprecated = true; Supersededby = 'env.Hooks.Command.Ran'}); -- When a command has already been ran, this will be fired.
 
@@ -38,6 +40,8 @@ env.Hooks = {
 env.Hooks.Command.PreProcess = {}; -- Runs if the engine thinks this is a command (message begins with the prefix) -> Environment, Executor:Player, Command:string, Arguments:table{string}, Console:boolean
 env.Hooks.Command.PostProcess = {}; -- Runs after the command arguments are parsed -> Environment, Executor:Player, Command:CommandData, Arguments:table{parsed arguments}, Console:boolean
 env.Hooks.Command.Ran = {}; -- Supersedes Signals.Processed; Runs after the command has been ran -> Environment, Executor:Player, RunContext:table{CommandData, Arguments, Keys, etc.}
+
+local PostInit = {};
 
 -- Check to see if this is a betabuild
 if script:FindFirstChild("THIS IS A BETA BUILD!") then
@@ -54,7 +58,7 @@ function env.warn(code, ...)
 end
 
 -- Load the main functions
-for _,v in pairs(script.MainFunctions:GetChildren()) do
+for _,v in script.MainFunctions:GetChildren() do
 	if v:IsA("ModuleScript") and v.Name ~= "BaseEnvironment" and v.Name ~= "ErrorCodes" then
 		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 		if betabuild then loads+=1 end
@@ -62,6 +66,8 @@ for _,v in pairs(script.MainFunctions:GetChildren()) do
 		if success then
 			if type(mod) == "table" and mod["_NxWrapper"] then
 				env[v.Name] = mod._NxWrapper(env);
+			elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
+				PostInit[v.Name] = mod._NxWrapper_PostInit;
 			else
 				env[v.Name] = mod;
 			end
@@ -73,7 +79,7 @@ for _,v in pairs(script.MainFunctions:GetChildren()) do
 end
 
 -- Load the Shared functions too
-for _,v in pairs(script.SharedFunctions:GetChildren()) do
+for _,v in script.SharedFunctions:GetChildren() do
 	if v:IsA("ModuleScript") then
 		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 		v:Clone().Parent = script.RedefineAUI.Main;
@@ -83,6 +89,8 @@ for _,v in pairs(script.SharedFunctions:GetChildren()) do
 		if success then
 			if type(mod) == "table" and mod["_NxWrapper"] then
 				env[v.Name] = mod._NxWrapper(env);
+			elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
+				PostInit[v.Name] = mod._NxWrapper_PostInit;
 			else
 				env[v.Name] = mod;
 			end
@@ -94,65 +102,13 @@ for _,v in pairs(script.SharedFunctions:GetChildren()) do
 end
 
 -- Load the main commands
-for _,v in pairs(script.MainCommands:GetChildren()) do
+for _,v in script.MainCommands:GetChildren() do
 	if v:IsA("ModuleScript") then
 		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 		if betabuild then loads+=1 end
 		local success,mod = pcall(function() return require(v) end)
 		if success then
-			local sanity = env:CommandSC(mod, v);
-			local load = true;
-
-			-- Sanity check the returned command data
-			if not sanity then
-				table.insert(env.Data.Logs.Errors,{os.time(),"Command Sanity Check Failed: "..v.Name});
-				load = false;
-				continue;
-			end
-
-			-- Check the dependencies
-			if mod.Dependencies then
-				for _,dependency in pairs(mod.Dependencies) do
-					if not env[dependency] then
-						warn('Redefine:A | Command "'..v.Name..'" has a dependency on "'..dependency..'" which is not loaded and/or does not exist; Skipping...');
-						table.insert(env.Data.Logs.Errors,{os.time(),"Command Dependency Check Failed: "..v.Name..' with dependency "'..dependency..'"'});
-						load = false;
-						continue;
-					end
-				end
-			end;
-
-			if env.Commands[mod.Name] then
-				if env.Commands[v.Name].DisallowOverwrite then
-					warn('Redefine:A | Command "'..v.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
-					load = false;
-					continue;
-				else
-					warn('Redefine:A | Command "'..v.Name..'" is being overwritten!')
-				end
-			end
-			if not (type(env.Commands) == "table") then env.Commands = {} end
-
-			if load then
-				-- There is a mod.OnLoad?
-				if type(mod.OnLoad) == "function" then
-					local success, err = pcall(function()
-						mod.OnLoad(env)
-					end)
-					
-					if not success then
-						warn('Redefine:A | Failed to load command: '..v.Name..'; because of a load error "'..err..'"');
-						continue;
-					end
-				end
-				
-				env.Commands[string.lower(mod.Name)] = mod;
-
-				-- Add the aliases
-				for _,v in pairs(mod.Aliases) do
-					env.Aliases[string.lower(v)] = mod;
-				end
-			end
+			env:RegisterCommand(mod, v);
 		else
 			warn('Redefine:A | Failed to compile command: '..v.Name..' with error "'..mod..'"');
 			table.insert(env.Data.Logs.Errors,{os.time(),"Command Compilation Failed: "..v.Name..' with error "'..mod..'"'});
@@ -175,12 +131,12 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 		local Commands = {};
 
 		-- Get the commands
-		for k,v in pairs(env.Commands) do
+		for k,v in env.Commands do
 			Commands[k] = v;
 		end
 
 		-- Get the aliases
-		for k,v in pairs(env.Aliases) do
+		for k,v in env.Aliases do
 			Commands[k] = v;
 		end
 
@@ -193,11 +149,10 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 	end
 end
 
-env["☕🗿"] = "coffee moai (hi aaron)";
-
 if firstCall then
-	firstCall = false
 	return function(Loader:Script,Settings:{[string]:any?})
+		if firstCall==false then return end;
+		firstCall = false
 		table.insert(env.Data.Logs.System, {os.time(), nil, "Handling load."});
 		if not (typeof(Loader) == "Instance") then error("Loader must be an instance") end
 		if not Loader:IsA("Script") then error("Loader must be a script") end
@@ -206,14 +161,14 @@ if firstCall then
 			if not env.Data then env.Data = {} end;
 			if not env.Data.Settings then env.Data.Settings = {} end;
 			if type(Settings) == "table" then
-				for i,v in pairs(Settings) do
+				for i,v in Settings do
 					env.Data.Settings[i] = v;
 				end
 			end
 
 			env.Data.Ingame.Admins = env.Data.Settings.Admins;
 		else
-			error("Settings were not found while loading!");
+			error("Redefine:A | Settings were not found while loading! Ceasing load.");
 		end
 
 		env.Storage = env.Datastore(Settings.DatastoreKey, env);
@@ -221,7 +176,7 @@ if firstCall then
 		-- Load the user's functions (if there are any)
 		local function LoadModules()
 			if Loader:FindFirstChild("Functions") then
-				for _,v in pairs(Loader.Functions:GetChildren()) do
+				for _,v in Loader.Functions:GetChildren() do
 					if v:IsA("ModuleScript") then
 						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 						if betabuild then loads+=1 end
@@ -229,6 +184,9 @@ if firstCall then
 						if success then
 							if type(mod) == "table" and mod["_NxWrapper"] then
 								env[v.Name] = mod._NxWrapper(env);
+							elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
+								warn("Redefine:A | User-based PostInit modules are not officially supported and may create vulnerabilities. Use _NxWrapper to suppress.")
+								PostInit[v.Name] = mod._NxWrapper_PostInit;
 							else
 								env[v.Name] = mod;
 							end
@@ -245,7 +203,7 @@ if firstCall then
 				local FakeCommands = Loader.Commands:Clone();
 				FakeCommands.Parent = game:GetService("ReplicatedStorage");
 				FakeCommands.Name = 'RA5_Commands';
-				for _,v in pairs(Loader.Commands:GetChildren()) do
+				for _,v in Loader.Commands:GetChildren() do
 					if v:IsA("ModuleScript") then
 						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
 						if betabuild then loads+=1 end
@@ -272,7 +230,7 @@ if firstCall then
 									mod.Description = '(NANO); '..mod.Description.Short or '(NANO); No Description Provided.';
 									mod.Arguments = mod.Fields;
 
-									for _,v in pairs(mod.Arguments) do
+									for _,v in mod.Arguments do
 										v.Name = v.Internal;
 									end
 
@@ -288,108 +246,17 @@ if firstCall then
 
 									-- Add the credits
 									if not (type(env.Data.Credits) == "table") then env.Data.Credits = {} end
-									for _,v in pairs(mod.Credits) do
+									for _,v in mod.Credits do
 										if not env.Data.Credits[v] then
 											env.Data.Credits[v] = true;
 										end
 									end
 
 									continue; -- Skip the entire section that comes after this
-								elseif type(mod.ModName) ~= 'nil' then -- R:A4 Backwards Compatibility
-									if not (type(env.RA4C) == "table") then 
-										env.RA4C = {};
-									end
-
-									if env.Commands[mod.ModName] then
-										if env.Commands[v.Name].DisallowOverwrite then
-											warn('Redefine:A | Command "'..v.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
-											continue;
-										else
-											warn('Redefine:A | Command "'..v.Name..'" is being overwritten with a compatibility-mode command!')
-										end
-									end
-
-									mod.Name = mod.ModName;
-									mod.Description = '(R:A4); ' .. mod.ModName .. " " .. mod.Usage;
-									mod.Arguments = 'rawinput'; -- R:A4 didn't support argument typing, so we'll just emulate a rawinput command.
-									mod.Aliases = mod.Alias;
-
-									local SC = env:CommandSC(mod, v);
-
-									if not SC then
-										warn('Redefine:A | Failed to compile R:A4 command '..v.Name..'.');
-										continue;
-									end
-
-									env.RA4C[string.lower(mod.Name)] = true;
-									env.Commands[string.lower(mod.Name)] = mod;
-
-									continue; -- Skip the entire section that comes after this
 								end;
 							end
 
-							local load = true;
-							local sanity = env:CommandSC(mod, v);
-
-							-- Sanity check the returned command data
-							if not sanity then
-								table.insert(env.Data.Logs.Errors,{os.time(),"Command Sanity Check Failed: "..v.Name});
-								load = false;
-								continue;
-							end
-
-							-- Check the dependencies
-							if mod.Dependencies then
-								for _,dependency in pairs(mod.Dependencies) do
-									if not env[dependency] then
-										warn('Redefine:A | Command "'..v.Name..'" has a dependency on "'..dependency..'" which is not loaded and/or does not exist; Skipping...');
-										table.insert(env.Data.Logs.Errors,{os.time(),"Command Dependency Check Failed: "..v.Name..' with dependency "'..dependency..'"'});
-										load = false;
-										continue;
-									end
-								end
-							end
-
-							if env.Commands[mod.Name] then
-								if env.Commands[mod.Name].DisallowOverwrite then
-									warn('Redefine:A | Command "'..mod.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
-									load = false;
-									continue;
-								else
-									warn('Redefine:A | Command "'..mod.Name..'" is being overwritten!')
-								end
-							end
-							if not (type(env.Commands) == "table") then env.Commands = {} end
-
-							if load then
-								if type(mod.OnLoad) == "function" then
-									local success, err = pcall(function()
-										mod.OnLoad(env)
-									end);
-									
-									if not success then
-										warn('Redefine:A | Failed to load command: '..v.Name..'; because of a load error "'..err..'"');
-										continue;
-									end
-								end
-								
-								env.Commands[string.lower(mod.Name)] = mod;
-
-								-- Add the credits
-								if not (type(env.Data.Credits) == "table") then env.Data.Credits = {} end
-								for _,v in pairs(mod.Credits) do
-									if not env.Data.Credits[v] then
-										env.Data.Credits[v] = true;
-									end
-								end
-
-								-- Add the aliases
-								for _,v in pairs(mod.Aliases) do
-									if type(v)=='string' then
-										env.Aliases[string.lower(v)] = mod;
-									end;
-								end
-							end
+							env:RegisterCommand(mod, v);
 						else
 							warn('Redefine:A | Failed to compile command: '..v.Name..' with error "'..mod..'"');
 							table.insert(env.Data.Logs.Errors,{os.time(),"Command Compilation Failed: "..v.Name..' with error "'..mod..'"'});
@@ -411,10 +278,15 @@ if firstCall then
 			LoadModules();
 			print("Redefine:A | Loaded "..loads.." modules in total; Took "..(os.clock()-loadtime).." seconds!");
 		end
+		
+		-- PostInit modules
+		for k,mod in PostInit do
+			env[k] = mod(env);
+		end
 
 		-- RelevelCommands
 		task.spawn(function()
-			for _,v in pairs(env.Commands) do
+			for _,v in env.Commands do
 				if Settings.RelevelCommands[v.Name] then
 					v.Level = Settings.RelevelCommands[v.Name];
 				end
@@ -453,7 +325,7 @@ if firstCall then
 			table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId});
 			env:HandleJoin(player);
 		end);
-		for _,player in pairs(game.Players:GetPlayers()) do -- Check for already existing players
+		for _,player in game.Players:GetPlayers() do -- Check for already existing players
 			table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId});
 			env:HandleJoin(player);
 		end

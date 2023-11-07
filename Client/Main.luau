@@ -1,4 +1,5 @@
 game:GetService("TestService"):Message("Redefine:A5 | BuildId " .. script.Parent:GetAttribute("nxversion"));
+local NoTaskbar = script.Parent:GetAttribute("notaskbar");
 
 -- Services
 local ContentProvider = game:GetService("ContentProvider")
@@ -13,7 +14,7 @@ local Taskbar:Frame = GUI:FindFirstChild("Taskbar") :: Frame;
 local Sidemenu:Frame = GUI:FindFirstChild("Sidemenu") :: Frame;
 
 -- Requires
-local env = require(script:FindFirstChild("ClientEnvironment"));
+local env = require(script:WaitForChild("ClientEnvironment",1));
 local Dragify = require(script:FindFirstChild("Dragify")); -- Allows creating draggable UI elements; usage: Dragify(DraggableFrame, PartToDragFrom);
 local Cardboard = require(script:FindFirstChild("CardBoard")); -- Allows creating UI elements from the Assets folder; usage: Cardboard(AssetType, Parent, Properties);
 local Colors = require(script:WaitForChild("ColorLib",1)); -- Allows converting color string into a Color3 instance; Usage: Colors("White") or Colors("255,255,255");
@@ -22,14 +23,25 @@ local Colors = require(script:WaitForChild("ColorLib",1)); -- Allows converting 
 local InternalEvent:BindableEvent = GUI:FindFirstChild("InternalCommunication") :: BindableEvent;
 local RemoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("NxRemoteEvent") :: RemoteEvent;
 local RemoteFunction = game:GetService("ReplicatedStorage"):WaitForChild("NxRemoteFunction") :: RemoteFunction;
-local LocalPlayer:Player? = game:GetService("Players").LocalPlayer;
+local LocalPlayer:Player = game:GetService("Players").LocalPlayer;
 local Players = game:GetService("Players");
+
+-- Wait for LocalPlayer to exist
+if not LocalPlayer then
+	game.Players:GetPropertyChangedSignal('LocalPlayer'):Wait()
+	LocalPlayer = game.Players.LocalPlayer; -- Once we do this, Player? is supposed to be Player (since there's no way it would be nil)
+end
+
+-- Types (LuaU)
+type QuickActionAPI = {
+
+}
 
 -- For some reason these values keep resetting, so we have to set them again.
 GUI.IgnoreGuiInset = true;
 GUI.ResetOnSpawn = false;
 
-for _,v in pairs(DefaultAssets:GetChildren()) do
+for _,v in DefaultAssets:GetChildren() do
 	if not Assets:FindFirstChild(v.Name) then
 		v:Clone().Parent = Assets;
 		v:Destroy();
@@ -59,6 +71,8 @@ local function PlaySound(AudioString : string) : nil
 	Sound.Ended:Connect(function()
 		Sound:Destroy();
 	end);
+
+	return nil;
 end;
 
 local function CreateUID()
@@ -69,82 +83,55 @@ local function CreateUID()
 	return UID;
 end
 
-local function ToHex(color)
+local function ToHex(color:Color3|string)
 	if type(color) == "string" then
 		return color; -- Assume it's already a hex color.
 	elseif typeof(color) == "Color3" then
-		return string.format("#%02X%02X%02X", color.r * 255, color.g * 255, color.b * 255);
+		return string.format("#%02X%02X%02X", color.R * 255, color.G * 255, color.B * 255);
 	else
 		return "#FFFFFF";
 	end;
 end;
 
+local QuickActionAPI = nil;
 local QuickActionCursor = nil;
-QuickActionAPI = {
-	LocalPlayer = LocalPlayer;
-	Button = function(self, Text)
-		local Button = QuickActionCursor.ButtonTemplate:Clone();
-		Button.Text = Text;
-		Button.Parent = QuickActionCursor;
-		Button.Visible = true;
+local QuickActionTabs = {};
+if not NoTaskbar then
+	QuickActionAPI = {
+		LocalPlayer = LocalPlayer;
+		Button = function(self, Text)
+			local Button:TextButton = QuickActionCursor:FindFirstChild("ButtonTemplate"):Clone() :: TextButton;
+			Button.Text = Text;
+			Button.Parent = QuickActionCursor;
+			Button.Visible = true;
 
-		return Button;
-	end;
-	AddInstanceButton = function(self, Instance, Text)
-		local Button = QuickActionCursor.ButtonTemplate:Clone();
-		Button.Text = Text;
-		Button.Parent = QuickActionCursor;
-		Button.Visible = true;
+			return Button;
+		end;
+		AddInstanceButton = function(self, Instance, Text)
+			local Button:TextButton = QuickActionCursor:FindFirstChild("ButtonTemplate"):Clone() :: TextButton;
+			Button.Text = Text;
+			Button.Parent = QuickActionCursor;
+			Button.Visible = true;
 
-		Instance:GetPropertyChangedSignal("Parent"):Connect(function()
-			if Instance.Parent == nil then
-				Button:Destroy();
-			end;
-		end);
-
-		return Button;
-	end;
-	AddPlayerButton = function(self, Player, Text)
-		return QuickActionAPI:AddInstanceButton(Player, Text);
-	end;
-	RunCommand = function(self, Command)
-		RemoteEvent:FireServer("CommandSent", Command);
-	end;
-};
-
-local QuickActionTabs = {
-	InstantKick = {
-		Tab = {
-			Title = 'Instant Kick';
-			Description = 'Instantly kicks a player of your choice by tapping their name.';
-			Locked = true;
-			Color = Color3.fromRGB(255, 0, 0);
-		};
-		Buttons = {
-			Structuring = function(API)
-				for _,plr in pairs(Players:GetPlayers()) do
-					if plr ~= LocalPlayer then
-						local Button = API:AddPlayerButton(plr, 'kick @'..plr.Name);
-						Button.MouseButton1Click:Connect(function()
-							API:RunCommand('kick @'..plr.Name);
-						end);
-					end
+			Instance:GetPropertyChangedSignal("Parent"):Connect(function()
+				if Instance.Parent == nil then
+					Button:Destroy();
 				end;
-			end;
-			Updates = {
-				{
-					Players.PlayerAdded;
-					function(API, Player)
-						local Button = API:AddPlayerButton(Player, 'kick @'..Player.Name);
-						Button.MouseButton1Click:Connect(function()
-							API:RunCommand('kick @'..Player.Name);
-						end);
-					end
-				};
-			};
-		};
+			end);
+
+			return Button;
+		end;
+		AddPlayerButton = function(self, Player, Text)
+			return QuickActionAPI:AddInstanceButton(Player, Text);
+		end;
+		RunCommand = function(self, Command)
+			RemoteEvent:FireServer("CommandSent", Command);
+		end;
+		RunEnvCommand = function(self, Command)
+			return env[Command];
+		end;
 	};
-}
+end;
 
 local function ClearNotification(Notification:TextButton)
 	Notification.Name = "disappearing"
@@ -154,7 +141,7 @@ local function ClearNotification(Notification:TextButton)
 	local tween = TweenService:Create(Notification, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = targetpos});
 	tween:Play();
 	-- Move any other notifications downwards
-	for _,v in pairs(GUI:GetChildren()) do
+	for _,v in GUI:GetChildren() do
 		if v:IsA("TextButton") then
 			if v.Position.Y.Offset < Notification.Position.Y.Offset then
 				local currentpos = v.Position;
@@ -176,7 +163,7 @@ local function NameFormat(input:string) -- This will turn any string input into 
 end;
 
 -- A prompt is a hint with a selection of choices.
-local function CreatePrompt(options:{[any?]:any?}?)
+local function CreatePrompt(options:{[any]:any?})
 	-- Override protection; Await until the previous prompt is cleared.
 	if GUI:FindFirstChild("ActivePrompt") then
 		repeat task.wait() until not GUI:FindFirstChild("ActivePrompt");
@@ -187,8 +174,8 @@ local function CreatePrompt(options:{[any?]:any?}?)
 	Prompt.Name = "ActivePrompt";
 	Dragify(Prompt);
 
-	local Choices = Prompt:FindFirstChild("Options");
-	local Content = Prompt:FindFirstChild("Content");
+	local Choices = Prompt:FindFirstChild("Options") :: Frame;
+	local Content = Prompt:FindFirstChild("Content") :: TextLabel;
 	local Options = options.Options or {'Button'};
 
 	Content.Text = options.Text or "Missing String";
@@ -196,7 +183,7 @@ local function CreatePrompt(options:{[any?]:any?}?)
 	local SortedOptions = {};
 	local PrimaryOption = nil;
 	local checked = false;
-	for internalname, optionvalues in pairs(Options) do
+	for internalname, optionvalues in (Options) do
 		if type(optionvalues) == "string" then
 			SortedOptions[internalname] = optionvalues;
 			if checked == false then
@@ -231,7 +218,7 @@ local function CreatePrompt(options:{[any?]:any?}?)
 	end);
 
 	-- Create the other options
-	for internalname, text in pairs(SortedOptions) do
+	for internalname, text in (SortedOptions) do
 		if internalname ~= PrimaryOption then
 			local Button:TextButton = Choices:FindFirstChild("PROMPT_Button"):Clone() :: TextButton;
 			Button.Name = internalname;
@@ -267,7 +254,7 @@ local function CreatePrivateConversation(playerID:number)
 	end
 
 	-- Create the input.
-	local Input = Assets:FindFirstChild("Input"):Clone();
+	local Input = Assets:FindFirstChild("Input"):Clone() :: Frame;
 	Input.Name = "ActiveInput";
 	Input.Parent = GUI;
 	Input.Visible = true;
@@ -369,10 +356,10 @@ local function ReceivePrivateConversation(playerID:number, text:string)
 end;
 
 local function CreateNotification(text:string, options:{[any?]: any?}?)
-    --[[
+	--[[
 	local UID = CreateUID();
 	local Notification:TextButton = Assets:FindFirstChild("Notification"):Clone() :: TextButton;
-    --]]
+	--]]
 
 	local Notification, UID = Cardboard("Notification", GUI, {
 		["Text"] = text;
@@ -470,7 +457,7 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 		if options.Options and type(options.Options) == "table" then
 			local SortedOptions = {};
 			local checked = false;
-			for internalname, optionvalues in pairs(options.Options) do
+			for internalname, optionvalues in (options.Options) do
 				if type(optionvalues) == "string" then
 					SortedOptions[internalname] = optionvalues;
 					if checked == false then
@@ -508,7 +495,7 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 			end);
 
 			-- Create the other options
-			for internalname, text in pairs(SortedOptions) do
+			for internalname, text in (SortedOptions) do
 				if internalname ~= PrimaryOption then
 					local Button:TextButton = Options:FindFirstChild("PROMPT_Button"):Clone() :: TextButton;
 					Button.Name = internalname;
@@ -542,7 +529,7 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 	-- Find where the notification should go if PushLowest is disabled
 	if not PushingDown then
 		local NotificationCount = -1;
-		for _, notification in pairs(GUI:GetChildren()) do
+		for _, notification in (GUI:GetChildren()) do
 			if notification:IsA("TextButton") and notification.Name ~= "disappearing" then
 				NotificationCount = NotificationCount + 1;
 			end
@@ -551,7 +538,7 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 		Notification.Position = NotificationPosition;
 	else
 		local children = GUI:GetChildren();
-		for _,v in pairs(children) do
+		for _,v in (children) do
 			if v:IsA("TextButton") and v.Name ~= UID and v.Name ~= "disappearing" then
 				local currentpos = v.Position;
 				local targetpos = UDim2.new(currentpos.X.Scale, currentpos.X.Offset, currentpos.Y.Scale, currentpos.Y.Offset - 50);
@@ -611,7 +598,7 @@ local function UpdateNotification(Notification:TextButton|string, Changes:any)
 		end
 		if Changes.Options and type(Changes.Options) == "table" then
 			-- Clear the options
-			for _, option in pairs(Options:GetChildren()) do
+			for _, option in (Options:GetChildren()) do
 				if option:IsA("TextButton") and option.Name ~= "PROMPT_DefaultButton" and option.Name ~= "PROMPT_Button" then
 					option:Destroy();
 				end
@@ -621,7 +608,7 @@ local function UpdateNotification(Notification:TextButton|string, Changes:any)
 			local PrimaryOption;
 			local TimedOutOption;
 			local checked = false;
-			for internalname, optionvalues in pairs(Changes.Options) do
+			for internalname, optionvalues in (Changes.Options) do
 				if type(optionvalues) == "table" then
 					if optionvalues.Text and type(optionvalues.Text) == "string" then
 						SortedOptions[internalname] = tostring(optionvalues.Text);
@@ -652,7 +639,7 @@ local function UpdateNotification(Notification:TextButton|string, Changes:any)
 			end);
 
 			-- Create the other options
-			for internalname, text in pairs(SortedOptions) do
+			for internalname, text in (SortedOptions) do
 				if internalname ~= PrimaryOption then
 					local Button:TextButton = Options:FindFirstChild("PROMPT_Button"):Clone() :: TextButton;
 					Button.Name = internalname;
@@ -717,7 +704,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 
 	-- Sort the items
 	local SortedItems = {};
-	for internalname, item in pairs(items) do
+	for internalname, item in (items) do
 		if type(item) == "string" or type(item) == "number" then
 			SortedItems[internalname] = tostring(item);
 		else
@@ -729,7 +716,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 		Searchbar.Visible = true;
 		Searchbar:GetPropertyChangedSignal("Text"):Connect(function()
 			local SearchText = Searchbar.Text;
-			for _, button in pairs(Container:GetChildren()) do
+			for _, button in (Container:GetChildren()) do
 				if button:IsA("TextButton") and button.Name ~= "TemplateButton" then
 					if string.find(string.lower(button.Label.Text), string.lower(SearchText)) then
 						button.Visible = true;
@@ -760,14 +747,14 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 
 			if not Items then return end;
 
-			for _, button in pairs(Container:GetChildren()) do
+			for _, button in (Container:GetChildren()) do
 				if button:IsA("TextButton") and button.Name ~= "TemplateButton" then
 					button:Destroy();
 				end
 			end
 
 			local SortedItems = {};
-			for internalname, item in pairs(Items) do
+			for internalname, item in (Items) do
 				if type(item) == "string" or type(item) == "number" then
 					SortedItems[internalname] = tostring(item);
 				else
@@ -775,7 +762,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 				end
 			end
 
-			for internalname, item in pairs(SortedItems) do
+			for internalname, item in (SortedItems) do
 				local Button:TextButton = ButtonTemplate:Clone() :: TextButton;
 				Button.Name = internalname;
 				Button.Label.Text = tostring(item);
@@ -786,7 +773,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 	end;
 
 	-- Create the buttons for the items
-	for internalname, item in pairs(SortedItems) do
+	for internalname, item in (SortedItems) do
 		if type(item) == 'string' then
 			local Button:TextButton = ButtonTemplate:Clone() :: TextButton;
 			Button.Name = internalname;
@@ -832,7 +819,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 				Button.Label.TextWrapped = true;
 				Button.Label.TextTruncate = Enum.TextTruncate.AtEnd;
 				Button.ClipsDescendants = true;
-				
+
 				if item.TextColor then
 					Button.Label.TextColor3 = item.TextColor;
 				end;
@@ -886,20 +873,22 @@ local LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId);
 local StoredLevels = {};
 StoredLevels[LocalPlayer.UserId] = LocalLevel;
 
-if Commands['kick'].Level > LocalLevel then
-	QuickActionTabs.InstantKick = nil;
-end
+if not NoTaskbar then
+	if Commands['kick'].Level > LocalLevel then
+		QuickActionTabs.InstantKick = nil;
+	end
 
-for _,Module in pairs(CommandModules:GetChildren()) do
-	pcall(function()
-		local Data = require(Module);
-		if LocalLevel >= Data.Level then
-			if Data.QuickActions then
-				table.insert(QuickActionTabs, Data.QuickActions);
+	for _,Module in (CommandModules:GetChildren()) do
+		pcall(function()
+			local Data = require(Module);
+			if LocalLevel >= Data.Level then
+				if Data.QuickActions then
+					table.insert(QuickActionTabs, Data.QuickActions);
+				end
 			end
-		end
-	end);
-end
+		end);
+	end
+end;
 
 --[[
 CreateNotification("Success!", {
@@ -948,7 +937,7 @@ if not (Method == "sourcemod" or Method == "minecraft" or Method == "simple") th
 end;
 
 -- Loop through all the qualifiers to check if they have the selected method.
-for _, qualifier in pairs(require(script.Qualifiers)) do
+for _, qualifier in (require(script.Qualifiers)) do
 	if qualifier.methods[Method] then
 		sortedqualifiers[qualifier.methods[Method]] = qualifier;
 	end;
@@ -963,7 +952,7 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 
 	-- If @strict is true, the name check will only apply for Player.Name; It will still allow short names, since we are attempting to find the player by name.
 	if Strict then
-		for _,Name in pairs(names) do
+		for _,Name in (names) do
 			for _,v in next,Players:GetPlayers() do
 				if string.lower(v.Name):sub(1,string.len(Name)) == string.lower(Name) then
 					table.insert(matches,v);
@@ -974,7 +963,7 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 	end
 
 	-- Loop through all the players.
-	for _,Name in pairs(names) do
+	for _,Name in (names) do
 		for _,v in next,Players:GetPlayers() do
 			local matched = false; -- If a player has been matched, this will be set to true so they won't be matched again and again.
 
@@ -1015,10 +1004,10 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 			end
 
 			-- Check the sortedqualifiers table for any matches; If there are any, handle them and add them to the matches table.
-			for method, qualifier in pairs(sortedqualifiers) do
+			for method, qualifier in (sortedqualifiers) do
 				if string.lower(Name) == string.lower(method) then
 					local MatchedPlayers = qualifier.identifier(false, Players:GetPlayers(), LocalPlayer);
-					for _, Player in pairs(MatchedPlayers) do
+					for _, Player in (MatchedPlayers) do
 						table.insert(matches, Player);
 					end;
 				end;
@@ -1028,7 +1017,7 @@ local function FindPlayers(Names,Strict) -- Function that finds players by name 
 
 	-- Remove duplicates.
 	local newmatches = {}
-	for _,v in pairs(matches) do
+	for _,v in (matches) do
 		if not table.find(newmatches,v) then
 			table.insert(newmatches,v)
 		end
@@ -1069,7 +1058,7 @@ Commandbar:FindFirstChild("Input").FocusLost:Connect(function(enterPressed)
 			table.remove(LastCommands, #LastCommands);
 		end
 
-		for _,v in pairs(Sidemenu.Content.QuickCommands:GetChildren()) do
+		for _,v in (Sidemenu.Content.QuickCommands:GetChildren()) do
 			if v:IsA("TextButton") and v.Visible then
 				v:Destroy();
 			end;
@@ -1106,7 +1095,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 	local Text = Commandbar.Input.Text;
 
 	-- Check the text for any of the escape forms; If there are any, replace them with the correct escape form.
-	for EscapeForm, EscapeFormValue in pairs(EscapeForms) do
+	for EscapeForm, EscapeFormValue in (EscapeForms) do
 		if Text:find(EscapeForm) then
 			Text = string.gsub(Text, EscapeForm, EscapeFormValue);
 		end;
@@ -1130,7 +1119,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 	end;
 
 	-- Clear all warnings
-	for _,v in pairs(Commandbar:FindFirstChild("Warnings"):GetChildren()) do
+	for _,v in (Commandbar:FindFirstChild("Warnings"):GetChildren()) do
 		if v.Name ~= "Template" and v:IsA("TextLabel") then
 			v:Destroy();
 		end
@@ -1208,7 +1197,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 		end
 
 		-- Check to see if the command has any keys within it. (Keys are arguments that change the way the command works; For example, --silent or --silent=true)
-		for i,arg in pairs(Args) do
+		for i,arg in (Args) do
 			if arg:sub(1,2) == "--" then
 				-- It's a key!
 				local key = string.lower(arg:sub(3));
@@ -1301,7 +1290,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 					if CommandArgs[argnum].Options and type(CommandArgs[argnum].Options) == "table" then
 						-- Check if the string is in the options table
 						local found = false;
-						for _, v in pairs(CommandArgs[argnum].Options) do
+						for _, v in (CommandArgs[argnum].Options) do
 							if v:sub(1, #arg):lower() == arg:lower() then
 								found = v;
 								break;
@@ -1487,7 +1476,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 							end
 						elseif Type == 'safeplayers' then
 							local found = false;
-							for i,v in pairs(FindPlayers(arg)) do
+							for i,v in (FindPlayers(arg)) do
 								if LocalLevel <= StoredLevels[v.UserId] then
 									found = true;
 									break;
@@ -1548,7 +1537,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 
 		-- Check if any of the arguments are missing
 		if CommandArgs then
-			for i, v in pairs(CommandArgs) do
+			for i, v in (CommandArgs) do
 				if not Args[i] and not v.Required then
 					local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
 					Warning.Name = "Warning" .. i;
@@ -1566,7 +1555,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 			end
 		end
 	else
-		for _, Arg in pairs(Args) do
+		for _, Arg in (Args) do
 			MaskedText = MaskedText .. " <font color='#AAAAAA'>" .. Arg .. "</font>";
 		end
 
@@ -1597,41 +1586,43 @@ Sidemenu.QuickSettings.NotificationSounds.MouseButton1Click:Connect(function()
 end);
 
 -- Go through all of the QuickActionTabs
-for Key,TabData in pairs(QuickActionTabs) do
+if not NoTaskbar then
+	for Key,TabData in (QuickActionTabs) do
 
-	local locked = TabData.Tab.Locked or false;
-	local Tab = Assets:FindFirstChild("QuickActionsTab"):Clone();
-	QuickActionCursor = Tab;
-	Tab.LayoutOrder = TabData.Tab.Locked and 2 or 0;
-	Tab.Name = Key;
-	Tab.Title.Text = TabData.Tab.Title;
-	Tab.Description.Text = TabData.Tab.Description;
-	Tab.BackgroundColor3 = TabData.Tab.Color or Color3.fromRGB(0, 0, 0);
-	
-	Tab:SetAttribute("Locked",TabData.Tab.Locked);
+		local locked = TabData.Tab.Locked or false;
+		local Tab = Assets:FindFirstChild("QuickActionsTab"):Clone();
+		QuickActionCursor = Tab;
+		Tab.LayoutOrder = TabData.Tab.Locked and 2 or 0;
+		Tab.Name = Key;
+		Tab.Title.Text = TabData.Tab.Title;
+		Tab.Description.Text = TabData.Tab.Description;
+		Tab.BackgroundColor3 = TabData.Tab.Color or Color3.fromRGB(0, 0, 0);
 
-	if TabData.Tab.Locked then
-		Tab.Title.Lock.Visible = true;
-		Tab.Title.Lock.MouseButton1Click:Connect(function()
-			locked = not locked;
-			Tab.Title.Lock.Image = locked and "http://www.roblox.com/asset/?id=6031082533" or "http://www.roblox.com/asset/?id=6026568220";
-		end);
+		Tab:SetAttribute("Locked",TabData.Tab.Locked);
+
+		if TabData.Tab.Locked then
+			Tab.Title.Lock.Visible = true;
+			Tab.Title.Lock.MouseButton1Click:Connect(function()
+				locked = not locked;
+				Tab.Title.Lock.Image = locked and "http://www.roblox.com/asset/?id=6031082533" or "http://www.roblox.com/asset/?id=6026568220";
+			end);
+		end;
+
+		-- Go through all of the actions
+		TabData.Buttons.Structuring(QuickActionAPI);
+
+		-- Go through all of the update stuff
+		for _, update in (TabData.Buttons.Updates) do -- {Event, API Function}
+			update[1]:Connect(function(...)
+				QuickActionCursor = Tab;
+				update[2](QuickActionAPI, ...);
+			end);
+		end;
+
+		-- Add the tab
+		Tab.Parent = Sidemenu.Content;
+		Tab.Visible = true;
 	end;
-
-	-- Go through all of the actions
-	TabData.Buttons.Structuring(QuickActionAPI);
-
-	-- Go through all of the update stuff
-	for _, update in ipairs(TabData.Buttons.Updates) do -- {Event, API Function}
-		update[1]:Connect(function(...)
-			QuickActionCursor = Tab;
-			update[2](QuickActionAPI, ...);
-		end);
-	end;
-
-	-- Add the tab
-	Tab.Parent = Sidemenu.Content;
-	Tab.Visible = true;
 end;
 
 -- Connect the remotes.
@@ -1698,14 +1689,14 @@ end;
 Players.PlayerAdded:Connect(function(player)
 	StoredLevels[player.UserId] = RemoteFunction:InvokeServer("GetLevel", player.UserId);
 end);
-for _, player in ipairs(Players:GetPlayers()) do
+for _, player in (Players:GetPlayers()) do
 	StoredLevels[player.UserId] = RemoteFunction:InvokeServer("GetLevel", player.UserId);
 end;
 
 -- Update the stored levels every 60 seconds
 task.spawn(function()
 	while task.wait(60) do
-		for _, player in ipairs(Players:GetPlayers()) do
+		for _, player in (Players:GetPlayers()) do
 			StoredLevels[player.UserId] = RemoteFunction:InvokeServer("GetLevel", player.UserId);
 		end;
 

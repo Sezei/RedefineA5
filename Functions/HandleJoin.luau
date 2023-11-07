@@ -10,6 +10,7 @@ return function (env, player)
 	end;
 	
 	local clone = env.MainModule.RedefineAUI:Clone();
+	clone:SetAttribute("notaskbar",env.Data.Settings['DisableTaskbar'] or false)
 	clone:SetAttribute("nxversion",env.NxEngine.BuildId or "Nightly");
 	clone.Parent = player.PlayerGui;
 	
@@ -100,16 +101,16 @@ return function (env, player)
 		env.Signals.JoinEvent:Fire(player);
 
 		-- Send a notification to the player
-
 		task.spawn(function()
 			local PlayerLevel = env:GetLevel(player);
-			if PlayerLevel >= 1 then
+			if PlayerLevel >= 1 and (type(env.Data.Settings['SendLevelNotification'])=="boolean" and env.Data.Settings['SendLevelNotification'] or type(env.Data.Settings['SendLevelNotification'])=='nil') then
 				local notification = env:Notify(player,"Welcome to the server! You are a(n) "..env.Data.Settings.Admins[PlayerLevel].GroupName.." (Level "..PlayerLevel..").",{
-					TextColor = Color3.fromRGB(0, 179, 255);
+					TextColor = Color3.fromRGB(85, 170, 255);
 					Options = {
 						["-"] = {Primary = true; Text = "Got it"};
 						["ShowCommands"] = "Show Commands";
 					};
+					Timeout = 20;
 				});
 
 				notification:AwaitResponse(function(response)
@@ -133,8 +134,3 @@ return function (env, player)
 		end
 	end)
 end
-
---[[
-	Localscript Source;
-	game:GetService("TestService"):Done("Redefine:A | Unhandled join: Player is already handled?")
-]]
