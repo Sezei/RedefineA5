@@ -1,7 +1,7 @@
 local env = {
 	-- Version info
 	NxEngine = {
-		BuildId = 103;
+		BuildId = 107;
 	};
 
 	-- In-game Data

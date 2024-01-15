@@ -100,11 +100,19 @@ local function error(debg,...)
 end
 
 --Module
-function Module(name,env,...)
+function Module(name,env,Vars,...)
+	Vars = Vars or {
+		nocache = false; -- Disable Cache
+		nosandbox = false; -- Disable sandboxing; Init only
+	};
+	
+	if type(Vars.nocache)=='nil' then Vars.nocache = false end;
+	if type(Vars.nosandbox)== 'nil' then Vars.nosandbox = false end;
+	
 	table.insert(env.Data.Logs.System, {os.time(), "Datastore", "Listening to category "..name});
 	if not api then api = env end;
 
-	if privateserver then -- Sandbox the datastore to the private server's owner ID.
+	if privateserver and not Vars.nosandbox then -- Sandbox the datastore to the private server's owner ID.
 		name = name.."_Prv"..privateserver;
 	end
 
@@ -134,6 +142,8 @@ function Module(name,env,...)
 		Task.Key = key
 		Task.Category = self
 		Task.Cancelled = false
+		
+		Task.Cache = not Vars.nocache;
 
 		if type(data) == "table" then
 			data = "_tbl:"..httpSvc:JSONEncode(data);
@@ -195,6 +205,8 @@ function Module(name,env,...)
 		Task.Key = key
 		Task.Category = self
 		Task.Cancelled = false
+		
+		Task.Cache = not Vars.nocache;
 
 		function Task:wait() 
 			repeat 
@@ -243,6 +255,8 @@ function Module(name,env,...)
 		Task.Key = key
 		Task.Category = self
 		Task.Cancelled = false
+		
+		Task.Cache = not Vars.nocache;
 
 		function Task:wait() 
 			repeat 
@@ -310,6 +324,8 @@ function Module(name,env,...)
 		Task.Key = key
 		Task.Category = self
 		Task.Cancelled = false
+		
+		Task.Cache = not Vars.nocache;
 
 		function Task:wait() repeat task.wait() until (self.Complete or self.Cancelled) end
 		function Task:Cancel() self.Cancelled = true; end
@@ -352,6 +368,8 @@ function Module(name,env,...)
 		Task.Key = key
 		Task.Category = self
 		Task.Cancelled = false
+		
+		Task.Cache = not Vars.nocache;
 
 		function Task:wait() repeat task.wait() until (self.Complete or self.Cancelled) end
 		function Task:Cancel() self.Cancelled = true; end
@@ -422,11 +440,13 @@ task.spawn(function()
 						ok,err = pcall(function()
 							if (Task.Type == "Save") then
 								if not data then return end
-								if datacache[Task.Category.Name][Task.Key] == data then warn("Even Easier Datastore | " .. Task.Key.." - Unnecessary save request!"); return end;
+								if Task.Cache then
+									if datacache[Task.Category.Name][Task.Key] == data then warn("Even Easier Datastore | " .. Task.Key.." - Unnecessary save request!"); return end;
+									datacache[Task.Category.Name][Task.Key] = data;
+								end
 								if not disabled then
 									Task.Category.Store:SetAsync(Task.Key,data) -- Save in here too just in-case the API will go down. - It'll destroy the Sync tho.
 								end
-								datacache[Task.Category.Name][Task.Key] = data;
 							elseif (Task.Type == "Nullify") then
 								if not disabled then
 									Task.Category.Store:RemoveAsync(Task.Key)
@@ -436,7 +456,10 @@ task.spawn(function()
 							elseif (Task.Type == "Update") then
 								--Rather than making tons of requests to the datastore, we cumulate the modifier functions here
 								--and only request with the result
-								if datacache[Task.Category.Name][Task.Key] == data then warn("Even Easier Datastore | " .. Task.Key.." - Unnecessary update request!"); return end;
+								if Task.Cache then
+									if datacache[Task.Category.Name][Task.Key] == data then warn("Even Easier Datastore | " .. Task.Key.." - Unnecessary update request!"); return end;
+									datacache[Task.Category.Name][Task.Key] = data;
+								end
 								local function func(variant)
 									for _,f in pairs(data) do variant = f(variant) end
 									return variant
@@ -444,10 +467,14 @@ task.spawn(function()
 								if not disabled then
 									Task.Category.Store:UpdateAsync(Task.Key,func)
 								end
-								datacache[Task.Category.Name][Task.Key] = data;
 							else
-								if datacache[Task.Category.Name][Task.Key] then
-									Task.Data = datacache[Task.Category.Name][Task.Key]
+								if Task.Cache and datacache[Task.Category.Name][Task.Key] then
+									local dat = datacache[Task.Category.Name][Task.Key];
+									if type(dat) == "string" and string.sub(dat,1,5) == "_tbl:" then
+										Task.Data = httpSvc:JSONDecode(string.sub(dat,6));
+									else
+										Task.Data = dat
+									end
 								else
 									local dat = Task.Category.Store:GetAsync(Task.Key)
 									if type(dat) == "string" and string.sub(dat,1,5) == "_tbl:" then
@@ -504,7 +531,7 @@ task.spawn(function()
 						end
 
 						--Also, we'll tell you so you know what's happening.
-						--print("Even Easier Datastore | Saving to key '" .. Task.Key .. "' failed with error: \"" .. err .. "\", retrying in " .. Task.NextTry .. " seconds")
+						print("Even Easier Datastore | Saving to key '" .. Task.Key .. "' failed with error: \"" .. err .. "\", retrying in " .. Task.NextTry .. " seconds")
 						Task.Data = data
 					end
 

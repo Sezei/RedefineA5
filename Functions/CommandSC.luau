@@ -1,4 +1,8 @@
-return function (env, mod, v)
+type SysLog = {
+	[number]:number|string;
+}
+
+return function (env:{Data:{Logs:{System:SysLog}};warn:(number|string,string?)->nil}, mod, v)
 	table.insert(env.Data.Logs.System, {os.time(), "CommandSC", "SC'ing "..v.Name});
 	if not (type(mod) == "table") then
 		env.warn(3,v.Name.." is not a valid command: Expected table, got "..typeof(mod));
@@ -16,7 +20,7 @@ return function (env, mod, v)
 
 	-- Sanity check the arguments;
 	if type(mod.Arguments)=='table' then
-		for argkey,argument in pairs(mod.Arguments) do
+		for argkey:string,argument in mod.Arguments do
 			if not (type(argument) == "table") then
 				env.warn(3,v.Name.." is not a valid command: Argument "..argkey.." is not a table");
 				return false;
@@ -43,7 +47,9 @@ return function (env, mod, v)
 				"players";
 				"safeplayers";
 				"color";
-				"slider";
+				"custom";
+				"slider"; -- Compatibility stuff
+				"dependant"; -- Added build 105 - still todo so use 'custom' for now
 			};
 			if not (table.find(matchingtypes, typeofcommand)) then
 				env.warn(v.Name.." might error: Argument "..argkey.." has an invalid type.");

@@ -2,67 +2,81 @@
 
 local MessagingService = game:GetService("MessagingService");
 
-local module = {
-	Topics = {};
-	Listeners = {};
-};
+Listeners = {};
 
-function module:Push(topic,data)
-	MessagingService:PublishAsync("RedefineA5",{Topic = topic,Data = data});
+local module = {};
+
+function module.new(topic)
+	local self = setmetatable({
+		Topic = topic;
+	}, module);
+	return self;
 end;
 
-function module:Publish(topic,data) -- Alias for Push
-	self:Push(topic,data);
+function module:Push(data,compatibility) -- If compatibility mode is required (old versions of the code might use it), we use Data as the topic.
+	if compatibility then
+		MessagingService:PublishAsync('RedefineA5',{Topic=data,Data=compatibility});
+	else
+		MessagingService:PublishAsync('RedefineA5',{Topic=self.Topic,Data=data});
+	end;
 end;
 
-function module:Listen(topic,callback)
-	local listener = MessagingService:SubscribeAsync("RedefineA5",function(data)
-		if data.Data.Topic == topic then
-			callback(data.Data.Data);
-		end
-	end);
-	table.insert(self.Listeners,listener);
-	return listener;
+function module:Publish(topic, data) -- Alias for Push, but for any topic
+	MessagingService:PublishAsync('RedefineA5',{Topic=topic,Data=data});
 end;
 
-function module:Subscribe(topic,callback) -- Alias for Listen
-	return self:Listen(topic,callback);
+function module:Listen(callback,compatibility) -- Primarily unnecessary since by creating a new topic, you're already listening to it; there's just no function to call the callback.
+	if compatibility then -- Compatibility for older code; Deprecated tho so use module.new(Topic) instead ;p
+		Listeners[callback] = compatibility;
+	else
+		Listeners[self.Topic] = callback;
+	end;
 end;
 
-function module:Unlisten(listener)
-	for i,v in ipairs(self.Listeners) do
-		if v == listener then
-			table.remove(self.Listeners,i);
-			listener:Disconnect();
-			break;
-		end
-	end
+function module:Subscribe(topic, data) -- Alias for Listen, but for any topic
+	Listeners[topic] = data;
 end;
 
-function module:Unsubscribe(listener) -- Alias for Unlisten
-	self:Unlisten(listener);
+function module:Unlisten()
+	Listeners[self.Topic] = nil;
+end;
+
+function module:Unsubscribe(topic) -- Alias for Unlisten, but for any topic
+	Listeners[topic] = nil;
 end;
 
 -- Unique functions
-function module:Once(topic,callback)
-	local listener;
-	listener = self:Listen(topic,function(data)
+function module:Once(callback)
+	local Listener = true;
+	Listeners[self.Topic] = function(data)
 		callback(data);
-		self:Unlisten(listener);
-	end);
+		Listeners[self.Topic] = nil;
+	end;
 end;
 
-function module:Wait(topic,callback)
-	local listener;
-	local data;
-	listener = self:Listen(topic,function(d)
-		data = d;
-		self:Unlisten(listener);
-	end);
-
-	repeat task.wait() until data;
-	callback(data);
-	return data;
+function module:Promise()
+	local Listener = true;
+	local Data = {Complete = false; Data = nil;};
+	Listeners[self.Topic] = function(data)
+		Data = {Complete = true; Data = data;};
+		Listeners[self.Topic] = nil;
+	end;
+	return Data;
 end;
 
-return module;
+function module:Wait()
+	local Listener = true;
+	local Data = {Complete = false; Data = nil;};
+	Listeners[self.Topic] = function(data)
+		Data = {Complete = true; Data = data;};
+		Listeners[self.Topic] = nil;
+	end;
+	repeat task.wait() until Data.Complete;
+	return Data.Data;
+end;
+
+MessagingService:SubscribeAsync('RedefineA5',function(data)
+	if Listeners[data.Topic] then
+		Listeners[data.Topic](data.Data);
+	end
+end);

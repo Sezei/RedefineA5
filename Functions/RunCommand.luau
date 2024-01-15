@@ -116,11 +116,11 @@ type Qualifier = {
 };
 
 type CommandData = {
-	
+
 };
 
 export type Command = {
-	
+
 	Disabled:boolean?;
 };
 
@@ -157,8 +157,9 @@ return function(env, player:Player, msg:string, console:boolean)
 		sortedqualifiers = {} :: {Qualifier};
 		-- Check if the qualifier method is valid.
 		if not (selectedmethod == "sourcemod" or selectedmethod == "minecraft" or selectedmethod == "simple") then
-			warn("Invalid qualifier method selected. Defaulting to 'sourcemod'.");
-			selectedmethod = "sourcemod";
+			warn("Invalid qualifier method selected. Defaulting to 'simple'.");
+			-- hi, 14th of Jan 2024: you had enough time to switch from sourcemod, right? xd
+			selectedmethod = "simple";
 		end;
 
 		-- Loop through all the qualifiers to check if they have the selected method.
@@ -168,7 +169,7 @@ return function(env, player:Player, msg:string, console:boolean)
 			end;
 		end;
 	end;
-	
+
 	local success:boolean, err:string? = pcall(function()
 		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix or msg:sub(1,4) == "r:a_" then
 			local args;
@@ -184,7 +185,7 @@ return function(env, player:Player, msg:string, console:boolean)
 				local success:boolean, response:{Cancel:boolean?;Command:string?;Arguments:{string}?} = pcall(function() return v(env, player, cmd, args, console) end);
 
 				if not success then warn('Redefine:A | PreProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PreProcess: with error; {response}`}) end;
-				
+
 				if type(response)=='nil' then continue end;
 
 				if type(response) == "table" then
@@ -275,7 +276,7 @@ return function(env, player:Player, msg:string, console:boolean)
 				-- For each key added, we remove it from the arguments table, and add it to the commandkeys table.
 				local commandkeys = {};
 
-				for i,arg in pairs(args) do
+				for i,arg in args do
 					if arg:sub(1,2) == "--" then
 						-- It's a key!
 						local key = arg:sub(3);
@@ -316,7 +317,7 @@ return function(env, player:Player, msg:string, console:boolean)
 					-- Just send the raw input to the command, and instead of having Args['name'], it will be Args[1], etc.
 					sortedarguments = args;
 				elseif type(command.Arguments) == 'table' then
-					for argposition,arg in pairs(command.Arguments) do
+					for argposition,arg in command.Arguments do
 						-- Arguments are built like this;
 					--[[
 						Argument = {
@@ -521,6 +522,63 @@ return function(env, player:Player, msg:string, console:boolean)
 								return
 							else
 								sortedarguments[argname] = argdefault;
+							end
+						elseif argtype == 'custom' then -- rawinput but worse (help)
+							--[[
+							{
+								Name = 'Argument';
+								Type = 'custom';
+								Required = false;
+								Default = function() return 'Default' end; -- can return anything
+								Function = function(env, text, arguments, player)
+									return 'Output'; -- can return anything
+								end;
+								ClientCheck = function(env, text)
+									return true, Color3.fromRGB(255,255,255); -- must always return a boolean; tuple[2] is an optional color that will default to white;
+								end;
+								IsValid = function(env, text, arguments, player)
+									return true; -- must always return a boolean
+								end;
+							}
+							]]
+							local ValidSuccess, isValid = pcall(arg.IsValid, env, argtext, sortedarguments, player);
+							if not ValidSuccess then
+								env:Notify(player,"Argument.IsValid error for "..argname..': '..isValid, {
+									Type = "critical";
+								});
+								return
+							end
+
+							if not isValid then
+								env:Notify(player,"You need to provide a valid value for argument "..argname, {
+									Type = "warning";
+								});
+								return
+							end
+
+							if argtext then
+								local FunctionSuccess, Output = pcall(arg.Function, env, argtext, sortedarguments, player)
+								if not FunctionSuccess then
+									env:Notify(player,"Argument.Function error for "..argname..': '..Output,{
+										Type = "critical";
+									});
+									return
+								end
+								sortedarguments[argname] = Output;
+							elseif argrequired then
+								env:Notify(player,"You need to provide a valid value for argument "..argname,{
+									Type = "warning";
+								});
+								return
+							else
+								local DefaultSuccess, DefaultValue = pcall(arg.Default, env, argtext, sortedarguments, player);
+								if not DefaultSuccess then
+									env:Notify(player,"Argument.Default error for "..argname..': '..DefaultValue, {
+										Type = "critical";
+									});
+									return
+								end
+								sortedarguments[argname] = DefaultValue;
 							end
 						elseif argtype == "players" then -- Like player, except returns a table of players instead of a singular one.
 							if not argtext then

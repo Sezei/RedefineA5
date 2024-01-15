@@ -12,7 +12,7 @@ return function(env, CompiledData, Module)
 
 	-- Check the dependencies
 	if CompiledData.Dependencies then
-		for _,dependency in pairs(CompiledData.Dependencies) do
+		for _,dependency in CompiledData.Dependencies do
 			if not env[dependency] then
 				warn('Redefine:A | Command "'..Module.Name..'" has a dependency on "'..dependency..'" which is not loaded and/or does not exist; Skipping...');
 				table.insert(env.Data.Logs.Errors,{os.time(),"Command Dependency Check Failed: "..Module.Name..' with dependency "'..dependency..'"'});
@@ -22,13 +22,13 @@ return function(env, CompiledData, Module)
 		end
 	end;
 
-	if env.Commands[CompiledData.Name] then
-		if env.Commands[Module.Name].DisallowOverwrite then
-			warn('Redefine:A | Command "'..Module.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
+	if env.Commands[string.lower(CompiledData.Name)] then
+		if env.Commands[string.lower(CompiledData.Name)].DisallowOverwrite then
+			warn('Redefine:A | Command "'..CompiledData.Name..'" has overwrite protection and cannot be overwritten; Skipping...');
 			load = false;
 			return;
 		else
-			warn('Redefine:A | Command "'..Module.Name..'" is being overwritten!')
+			warn('Redefine:A | Command "'..CompiledData.Name..'" is being overwritten!')
 		end
 	end
 	if not (type(env.Commands) == "table") then env.Commands = {} end
@@ -41,7 +41,7 @@ return function(env, CompiledData, Module)
 			end)
 
 			if not success then
-				warn('Redefine:A | Failed to load command: '..Module.Name..'; because of a load error "'..err..'"');
+				warn('Redefine:A | Failed to load command: '..CompiledData.Name..'; because of a load error "'..err..'"');
 				return;
 			end
 		end
@@ -57,7 +57,7 @@ return function(env, CompiledData, Module)
 		end
 
 		-- Add the aliases
-		for _,Module in pairs(CompiledData.Aliases) do
+		for _,Module in CompiledData.Aliases do
 			env.Aliases[string.lower(Module)] = CompiledData;
 		end
 	end

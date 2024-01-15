@@ -396,11 +396,13 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 					["BackgroundColor"] = Color3.fromRGB(45, 45, 45);
 					["TextColor"] = Color3.fromRGB(255, 127, 0);
 				});
+				options.Sound = options.Sound or 'rbxassetid://5974456365';
 			elseif string.lower(options.Type) == "error" then
 				Cardboard:UpdateAsset(UID, {
 					["BackgroundColor"] = Color3.fromRGB(45, 45, 45);
 					["TextColor"] = Color3.fromRGB(255, 60, 60);
 				});
+				options.Sound = options.Sound or 'rbxassetid://5974456449';
 			elseif string.lower(options.Type) == "critical" then
 				Cardboard:UpdateAsset(UID, {
 					["BackgroundColor"] = Color3.fromRGB(255, 60, 60);
@@ -408,6 +410,7 @@ local function CreateNotification(text:string, options:{[any?]: any?}?)
 				});
 				Label.Font = Enum.Font.GothamBlack;
 				PushingDown = true;
+				options.Sound = options.Sound or 'rbxassetid://5974456264';
 			end
 		end
 		if options.TextColor and typeof(options.TextColor) == "Color3" then
@@ -671,7 +674,7 @@ local function UpdateNotification(Notification:TextButton|string, Changes:any)
 	Notification:TweenSize(UDim2.new(0, XSize, 0, 40), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true);
 end
 
-local function CreateList(title:string, items:{any: string|number}?, options:{string: any?}?)
+local function CreateList(title:string, items:{any: string|number}?, options:{string: boolean}?)
 	if not items then items = {} end;
 	if not options then options = {Searchbar = true; Minimizable = true;} end;
 	--TODO
@@ -717,7 +720,7 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 		Searchbar:GetPropertyChangedSignal("Text"):Connect(function()
 			local SearchText = Searchbar.Text;
 			for _, button in (Container:GetChildren()) do
-				if button:IsA("TextButton") and button.Name ~= "TemplateButton" then
+				if button:IsA("TextButton") and button.Name ~= "TemplateButton" and button.Name ~= "TemplateRealButton" then
 					if string.find(string.lower(button.Label.Text), string.lower(SearchText)) then
 						button.Visible = true;
 					else
@@ -1336,8 +1339,8 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 					else
 						MaskedText = MaskedText .. " <font color='#FFFFFF'>" .. arg .. "</font>";
 					end
-				elseif Type == "subcommand" then
-					-- This type is no longer supported.
+				elseif Type == "dependant" then
+					--TODO: Use custom for now
 				elseif Type == "custom" then
 					if CommandArgs[argnum].Validator then
 						local valid, err = pcall(CommandArgs[argnum].Validator, arg);
@@ -1518,7 +1521,7 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 				end
 			else
 				-- Check if the last argument type is a string in order to highlight the rest of the args as a string rather than as a non-existent argument
-				if CommandArgs and CommandArgs[#CommandArgs] and (CommandArgs[#CommandArgs].Type == "string" or CommandArgs[#CommandArgs].Type == "rawinput") then
+				if CommandArgs and CommandArgs[#CommandArgs] and (string.lower(CommandArgs[#CommandArgs].Type) == "string" or string.lower(CommandArgs[#CommandArgs].Type) == "rawinput") then
 					MaskedText = MaskedText .. " <font color='#FFFFFF'>" .. arg .. "</font>";
 				else
 					MaskedText = MaskedText .. " <font color='#AAAAAA'>" .. arg .. "</font>";
@@ -1632,7 +1635,7 @@ RemoteEvent.OnClientEvent:Connect(function(...)
 	table.remove(Arguments, 1);
 
 	if EventName == "Notify" then
-		CreateNotification(Arguments[1], Arguments[2]);
+		CreateNotification(tostring(Arguments[1]), Arguments[2]);
 	elseif EventName == "UpdateNotification" then
 		UpdateNotification(Arguments[1], Arguments[2]);
 	elseif EventName == "ClearNotification" then
@@ -1676,7 +1679,7 @@ RemoteFunction.OnClientInvoke = function(...)
 	if FunctionName == "NotificationExists" then
 		return (not (not Cardboard:FindAsset(Arguments[1])));
 	elseif FunctionName == "Notify" then -- If used in a function, it usually means the server is awaiting for a response from the player due to the .Options; Return an UUID to the server.
-		local _, UID = CreateNotification(Arguments[1], Arguments[2]);
+		local _, UID = CreateNotification(tostring(Arguments[1]), Arguments[2]);
 		return UID;
 	elseif FunctionName == "Prompt" then
 		local _, UID = CreatePrompt(Arguments[1]);
