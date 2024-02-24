@@ -80,3 +80,5 @@ MessagingService:SubscribeAsync('RedefineA5',function(data)
 		Listeners[data.Topic](data.Data);
 	end
 end);
+
+return module;

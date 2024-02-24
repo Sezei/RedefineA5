@@ -269,9 +269,9 @@ return function(env, player:Player, msg:string, console:boolean)
 				end
 
 				-- Sometimes the people can also add keys (For example, --silent) to the command, which can be used to change the way the command works.
-				-- We can check if a command is a key by checking if it starts with a double-dash (--)
+				-- We can check if a command has a key by checking if any 'argument' starts with a double-dash (--)
 				-- Sometimes keys can also have values, for example, --silent=true
-				-- We can check if a key has a value by checking if it contains an equals sign (=); But it must be a key first.
+				-- We can check if a key has a value by checking if it contains an equals sign (=); But it must be have a key first.
 
 				-- For each key added, we remove it from the arguments table, and add it to the commandkeys table.
 				local commandkeys = {};
@@ -298,7 +298,7 @@ return function(env, player:Player, msg:string, console:boolean)
 
 							-- Check to see if the value is not empty
 							if value == "" then
-								env:Notify(player,"You have entered an invalid value; Ignoring value.",{
+								env:Notify(player,"You have entered an invalid value for key ".. key .."; Ignoring value.",{
 									Type = "warning";
 								})
 								table.remove(args,i);
@@ -419,11 +419,11 @@ return function(env, player:Player, msg:string, console:boolean)
 									elseif #safematches == 1 then
 										sortedarguments[argname] = safematches[1];
 									else
-										-- Warn the player that multiple players were found
-										env:Notify(player,"Multiple players were found when searching for argument "..argname..": Picked the first match.",{
+										-- Due to being SAFE player, we don't want 'any' match, we want a specific one.
+										env:Notify(player,"Multiple players were found when searching for argument "..argname..": Please attempt to be more specific.",{
 											Type = "warning";
 										});
-										sortedarguments[argname] = safematches[1];
+										return
 									end
 								end
 							end
@@ -676,13 +676,13 @@ return function(env, player:Player, msg:string, console:boolean)
 									return
 								else
 									local safematches = {};
-									for _,match in pairs(matches) do
+									for _,match in matches do
 										if env:GetLevel(match) >= env:GetLevel(player) then
 											table.insert(safematches,match);
 										end
 									end
 									if #safematches == 0 then
-										env:Notify(player,"No player was found when searching for argument "..argname,{
+										env:Notify(player,"No safe players were found when searching for argument "..argname,{
 											Type = "warning";
 										});
 										return
@@ -726,7 +726,7 @@ return function(env, player:Player, msg:string, console:boolean)
 										end
 									end
 									if #safematches == 0 then
-										env:Notify(player,"No player was found when searching for argument "..argname,{
+										env:Notify(player,"No safe players were found when searching for argument "..argname,{
 											Type = "warning";
 										});
 										return
@@ -761,6 +761,10 @@ return function(env, player:Player, msg:string, console:boolean)
 					if delay then
 						delay = math.clamp(delay,0,60);
 						task.wait(delay);
+					else
+						env:Notify(player,"Couldn't delay the command due to the value being a non-number.",{
+							Type = "warning";
+						});
 					end
 				end
 
@@ -832,7 +836,7 @@ return function(env, player:Player, msg:string, console:boolean)
 							});
 						else
 							env.RemoteEvent:FireClient(player,"Notify","Command is not compatible; "..ret,{
-								Type = "critical";
+								Type = "error";
 								Image = "http://www.roblox.com/asset/?id=6026568192";
 								Options = {
 									"Got it";

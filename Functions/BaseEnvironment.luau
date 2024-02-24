@@ -1,7 +1,9 @@
+-- This file defines the base environment for the game. It contains version information, in-game data, variables, and instances.
+
 local env = {
 	-- Version info
 	NxEngine = {
-		BuildId = 107;
+		BuildId = 110;
 	};
 
 	-- In-game Data

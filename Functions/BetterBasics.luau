@@ -12,10 +12,17 @@ module.string = {}
 module.table = {}
 module.bool = {}
 
+-- Rounds a number to a specified number of decimal places.
+-- @param num The number to round.
+-- @param pnt The number of decimal places to round to.
+-- @return The rounded number.
 function module.math.fround(num,pnt)
 	return math.floor(num*(10^pnt))/(10^pnt)
 end
 
+-- Creates a deep copy of a table.
+-- @param t The table to clone.
+-- @return The cloned table.
 function module.table.fullclone(t)
 	local new = {}
 
@@ -26,6 +33,9 @@ function module.table.fullclone(t)
 	return new;
 end
 
+-- Calculates the median value of a numeric table.
+-- @param t The numeric table.
+-- @return The median value.
 function module.table.median(t)
 	local size = #t
 	local half = math.floor(size/2)
@@ -37,6 +47,9 @@ function module.table.median(t)
 	end
 end
 
+-- Inverts the order of elements in a table.
+-- @param t The table to invert.
+-- @return The inverted table.
 function module.table.invert(t)
 	local new = {}
 
@@ -47,6 +60,10 @@ function module.table.invert(t)
 	return new;
 end
 
+-- Replaces placeholders in a string with their corresponding values.
+-- @param origin The original string.
+-- @param placeholders A table of placeholders and their values.
+-- @return The string with placeholders replaced.
 function module.string.placeholder(origin,placeholders)
 	local s:string = tostring(origin);
 
@@ -57,10 +74,16 @@ function module.string.placeholder(origin,placeholders)
 	return s;
 end
 
+-- Fixes special characters in a string used in the new chat system in Roblox.
+-- @param str The string to fix.
+-- @return The fixed string.
 function module.string.fixnewchat(str)
-	return str:gsub("&#39;","'"):gsub("&quot;",'"'):gsub("&lt;","<"):gsub("&gt;",">"):gsub("&amp;","&") -- it simply fixes the new chat system roblox created
+	return str:gsub("&#39;","'"):gsub("&quot;",'"'):gsub("&lt;","<"):gsub("&gt;",">"):gsub("&amp;","&")
 end
 
+-- Converts a value to a boolean.
+-- @param self The value to convert.
+-- @return The boolean representation of the value.
 function module.bool.tobool(self)
 	if type(self) == 'nil' then
 		return false;
@@ -81,6 +104,9 @@ function module.bool.tobool(self)
 	end;
 end
 
+-- Inverts the boolean value.
+-- @param self The boolean value to invert.
+-- @return The inverted boolean value.
 function module.bool.invert(self)
 	if type(self) ~= 'boolean' then
 		return not module.bool.tobool(self);

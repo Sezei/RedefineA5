@@ -200,6 +200,21 @@ if firstCall then
 
 			-- Load the user's commands (if there are any)
 			if Loader:FindFirstChild("Commands") then
+				--Meta-Categories
+				if Loader.Commands:FindFirstChild("_VIPOnly") then
+					if game.PrivateServerOwnerId ~= 0 then
+						for _,Module in Loader.Commands._VIPOnly do
+							Module:Clone().Parent = Loader.Commands;
+						end
+					end;
+					Loader.Commands._VIPOnly:Destroy();
+				end
+				if Loader.Commands:FindFirstChild("_Disabled") then
+					Loader.Commands._Disabled:Destroy();
+				end
+				
+				--Support for actual categories will be added eventually. I promise. ;p
+				
 				local FakeCommands = Loader.Commands:Clone();
 				FakeCommands.Parent = game:GetService("ReplicatedStorage");
 				FakeCommands.Name = 'RA5_Commands';
@@ -227,7 +242,7 @@ if firstCall then
 
 									mod.Level = 3; -- Assume it's an Admin command rather than a Moderator one; Better be safe than sorry!
 									mod.Credits = mod.Credit;
-									mod.Description = '(NANO); '..mod.Description.Short or '(NANO); No Description Provided.';
+									mod.Description = '(NANO); '..(mod.Description.Short or 'No Description Provided.');
 									mod.Arguments = mod.Fields;
 
 									for _,v in mod.Arguments do
@@ -335,6 +350,9 @@ if firstCall then
 		shared.RedefineA = { -- Create the shared environment
 			GetLevel = function(player)
 				return env:GetLevel(player);
+			end;
+			Notify = function(Player, Text, Options)
+				return env:Notify(Player, Text, Options);
 			end;
 			Signals = env.Signals; -- Add the signals; This might be a risky move due to the fact that it returns an unprotected table.
 		};

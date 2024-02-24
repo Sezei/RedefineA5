@@ -63,14 +63,16 @@ local LastCommands = {}; -- Keep track of 5 commands the user has executed, so t
 
 local function PlaySound(AudioString : string) : nil
 	local Sound = Instance.new("Sound");
-	Sound.SoundId = "rbxassetid://" .. AudioString;
+	Sound.SoundId = AudioString;
 	Sound.Parent = GUI;
 	Sound.Looped = false;
-	if not Sound.IsLoaded then Sound.Loaded:Wait() end;
-	Sound:Play();
-	Sound.Ended:Connect(function()
-		Sound:Destroy();
-	end);
+	task.spawn(function()
+		if not Sound.IsLoaded then Sound.Loaded:Wait() end;
+		Sound:Play();
+		Sound.Ended:Connect(function()
+			Sound:Destroy();
+		end);
+	end)
 
 	return nil;
 end;
@@ -277,24 +279,26 @@ local function CreatePrivateConversation(playerID:number)
 	Input.Options.PROMPT_DefaultButton.MouseButton1Click:Connect(Send);
 	Input.Options.PROMPT_DefaultButton.Visible = true;
 
-	local SendLater = Input.Options.PROMPT_Button:Clone();
-	SendLater.Parent = Input.Options;
-	SendLater.Visible = true;
-	SendLater.Text = "Send Later";
+	if not NoTaskbar then
+		local SendLater = Input.Options.PROMPT_Button:Clone();
+		SendLater.Parent = Input.Options;
+		SendLater.Visible = true;
+		SendLater.Text = "Send Later";
 
-	SendLater.MouseButton1Click:Connect(function()
-		local UID = CreateUID();
-		Input.Name = UID;
+		SendLater.MouseButton1Click:Connect(function()
+			local UID = CreateUID();
+			Input.Name = UID;
 
-		Input.Visible = false;
-		local btn = GUI.Taskbar.InnerContainer.Template:Clone();
-		btn.Text = "PM to "..Players:GetPlayerByUserId(playerID).DisplayName
-		btn.Name = UID;
-		btn.Parent = GUI.Taskbar.InnerContainer;
-		task.wait();
-		btn.Size = UDim2.fromOffset(math.clamp(btn.TextBounds.X + 20, 90, 250), 40);
-		btn.Visible = true;
-	end);
+			Input.Visible = false;
+			local btn = GUI.Taskbar.InnerContainer.Template:Clone();
+			btn.Text = "PM to "..Players:GetPlayerByUserId(playerID).DisplayName
+			btn.Name = UID;
+			btn.Parent = GUI.Taskbar.InnerContainer;
+			task.wait();
+			btn.Size = UDim2.fromOffset(math.clamp(btn.TextBounds.X + 20, 90, 250), 40);
+			btn.Visible = true;
+		end);
+	end;
 
 	Input.Options.PROMPT_Button.MouseButton1Click:Connect(Cancel);
 	Input.Options.PROMPT_Button.Visible = true;
@@ -332,24 +336,26 @@ local function ReceivePrivateConversation(playerID:number, text:string)
 	Input.Options.PROMPT_DefaultButton.MouseButton1Click:Connect(Send);
 	Input.Options.PROMPT_DefaultButton.Visible = true;
 
-	local SendLater = Input.Options.PROMPT_Button:Clone();
-	SendLater.Parent = Input.Options;
-	SendLater.Visible = true;
-	SendLater.Text = "Save Message";
+	if not NoTaskbar then
+		local SendLater = Input.Options.PROMPT_Button:Clone();
+		SendLater.Parent = Input.Options;
+		SendLater.Visible = true;
+		SendLater.Text = "Save Message";
 
-	SendLater.MouseButton1Click:Connect(function()
-		local UID = CreateUID();
-		Input.Name = UID;
+		SendLater.MouseButton1Click:Connect(function()
+			local UID = CreateUID();
+			Input.Name = UID;
 
-		Input.Visible = false;
-		local btn = GUI.Taskbar.InnerContainer.Template:Clone();
-		btn.Text = "PM from "..Players:GetPlayerByUserId(playerID).DisplayName
-		btn.Name = UID;
-		btn.Parent = GUI.Taskbar.InnerContainer;
-		task.wait();
-		btn.Size = UDim2.fromOffset(math.clamp(btn.TextBounds.X + 20, 90, 250), 40);
-		btn.Visible = true;
-	end);
+			Input.Visible = false;
+			local btn = GUI.Taskbar.InnerContainer.Template:Clone();
+			btn.Text = "PM from "..Players:GetPlayerByUserId(playerID).DisplayName
+			btn.Name = UID;
+			btn.Parent = GUI.Taskbar.InnerContainer;
+			task.wait();
+			btn.Size = UDim2.fromOffset(math.clamp(btn.TextBounds.X + 20, 90, 250), 40);
+			btn.Visible = true;
+		end);
+	end;
 
 	Input.Options.PROMPT_Button.MouseButton1Click:Connect(Cancel);
 	Input.Options.PROMPT_Button.Visible = true;
@@ -1577,16 +1583,25 @@ end);
 -- Sidebar stuff
 Taskbar.Logo.MouseButton1Click:Connect(function()
 	Sidemenu:TweenPosition(UDim2.fromScale(0, 0), "Out", "Quad", 0.2, true);
+	Sidemenu.Visible = true;
 end);
 
 Sidemenu.Close.MouseButton1Click:Connect(function()
-	Sidemenu:TweenPosition(UDim2.fromScale(-0.2, 0), "Out", "Quad", 0.2, true);
+	Sidemenu:TweenPosition(UDim2.fromScale(-0.2, 0), "Out", "Quad", 0.2, true, function()
+		Sidemenu.Visible = false;
+	end);
 end);
 
 Sidemenu.QuickSettings.NotificationSounds.MouseButton1Click:Connect(function()
 	NotificationSounds = not NotificationSounds;
 	Sidemenu.QuickSettings.NotificationSounds.ImageButton.Image = NotificationSounds and "http://www.roblox.com/asset/?id=6034308946" or "http://www.roblox.com/asset/?id=6034308947";
 end);
+
+if NoTaskbar then
+	Taskbar.Visible = false;
+	Taskbar.LocalScript.Enabled = false;
+	GUI.TaskbarHitbox:Destroy();
+end
 
 -- Go through all of the QuickActionTabs
 if not NoTaskbar then

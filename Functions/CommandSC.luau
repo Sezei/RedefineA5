@@ -47,7 +47,7 @@ return function (env:{Data:{Logs:{System:SysLog}};warn:(number|string,string?)->
 				"players";
 				"safeplayers";
 				"color";
-				"custom";
+				"custom"; -- i forgot to add this LONG AGO jeez
 				"slider"; -- Compatibility stuff
 				"dependant"; -- Added build 105 - still todo so use 'custom' for now
 			};
