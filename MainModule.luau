@@ -108,6 +108,7 @@ for _,v in script.MainCommands:GetChildren() do
 		if betabuild then loads+=1 end
 		local success,mod = pcall(function() return require(v) end)
 		if success then
+			if mod.IsADebugCommand and game.PlaceId ~= 2413178408 then continue end
 			env:RegisterCommand(mod, v);
 		else
 			warn('Redefine:A | Failed to compile command: '..v.Name..' with error "'..mod..'"');
@@ -322,7 +323,7 @@ if firstCall then
 			end
 
 			while task.wait() do
-				if (LastCheck + 20) <= tick() then
+				if (LastCheck + 120) <= tick() then
 					-- Check the banlist again to see if any bans have updated.
 					table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
 					local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");

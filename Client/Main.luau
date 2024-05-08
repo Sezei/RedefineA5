@@ -1,5 +1,6 @@
 game:GetService("TestService"):Message("Redefine:A5 | BuildId " .. script.Parent:GetAttribute("nxversion"));
 local NoTaskbar = script.Parent:GetAttribute("notaskbar");
+local ConsoleKeybind = script.Parent:GetAttribute("consolekeybind");
 
 -- Services
 local ContentProvider = game:GetService("ContentProvider")
@@ -262,7 +263,8 @@ local function CreatePrivateConversation(playerID:number)
 	Input.Visible = true;
 	Dragify(Input);
 
-	Input.Title.Text = "Sending to <b>" .. Players:GetPlayerByUserId(playerID).DisplayName .. "</b>";
+	Input:FindFirstChild("Title")
+		.Text = "Sending to <b>" .. Players:GetPlayerByUserId(playerID).DisplayName .. "</b>";
 
 	local function Send()
 		-- Send the message to the server.
@@ -700,6 +702,8 @@ local function CreateList(title:string, items:{any: string|number}?, options:{st
 	local ButtonTemplate:TextButton = Container:FindFirstChild("TemplateButton") :: TextButton;
 	local RealButton = Container:FindFirstChild("TemplateRealButton");
 	local Description = Container:FindFirstChild("TemplateDescription");
+	
+	Container.ClipsDescendants = true; -- For some reason it can randomly be set to false?
 
 	List.Name = UID;
 	Title.Text = title;
@@ -1042,9 +1046,11 @@ UserInputService.InputBegan:Connect(function(input)
 	-- Ignore the input if there's already an active input field
 	if UserInputService:GetFocusedTextBox() then return end;
 
-	if input.KeyCode == Enum.KeyCode.Equals then
-		LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId); -- Update the local level stored in the client
-		StoredLevels[LocalPlayer.UserId] = LocalLevel; -- Update the stored level in the client
+	if input.KeyCode == (ConsoleKeybind and Enum.KeyCode[ConsoleKeybind] or Enum.KeyCode.Equals) then
+		if not StoredLevels[LocalPlayer.UserId] then -- Chances are, the level won't change, so lets just check it once and avoid lag entirely. :3
+			LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId); -- Update the local level stored in the client
+			StoredLevels[LocalPlayer.UserId] = LocalLevel; -- Update the stored level in the client
+		end;
 		Commandbar:TweenPosition(UDim2.new(0.5, 0, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true,function()
 			Commandbar:FindFirstChild("Input").Text = "";
 			Commandbar.Warnings.Visible = true;
@@ -1342,6 +1348,13 @@ Commandbar.Input:GetPropertyChangedSignal("Text"):Connect(function()
 							Warning.Visible = true;
 							Warning.Parent = Commandbar:FindFirstChild("Warnings");
 						end
+					elseif CommandArgs[argnum].Required and arg:gsub("%s+", "")=='' then
+						-- Required value, can't use the default one!
+						local Warning = Commandbar:FindFirstChild("Warnings"):FindFirstChild("Template"):Clone();
+						Warning.Name = "Warning" .. argnum;
+						Warning.Text = "<font color='#ff3300'>String Empty</font>; " .. argnum .. "; This argument requires an input and cannot be empty.";
+						Warning.Visible = true;
+						Warning.Parent = Commandbar:FindFirstChild("Warnings");
 					else
 						MaskedText = MaskedText .. " <font color='#FFFFFF'>" .. arg .. "</font>";
 					end

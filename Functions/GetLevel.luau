@@ -2,6 +2,8 @@ local Market = game:GetService("MarketplaceService");
 local BadgeService = game:GetService("BadgeService");
 local GroupService = game:GetService("GroupService");
 
+local Cache = {}; --TODO: Cache group ranks in order to avoid multiple calls to the Groups API.
+
 return function(env, player)
 	-- Check if the provided player is a player instance.
 	if player and typeof(player) == "Instance" and player:IsA("Player") then
@@ -18,7 +20,7 @@ return function(env, player)
 
 		-- Sanity check the stuff! Sometimes people don't do stuff the intended way!!
 		local HighestLevel = 0;
-		for Level, _ in pairs(Admins) do
+		for Level, _ in Admins do
 			if type(Level) ~= "number" then
 				warn(`Removed an admin rank from the Admins list for being invalid; {Level}`);
 				Admins[Level] = nil;
@@ -32,9 +34,10 @@ return function(env, player)
 		if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
 			return HighestLevel, true, true; -- Return the highest level and mark as a base admin.
 		elseif game.CreatorType == Enum.CreatorType.Group and player:IsInGroup(game.CreatorId) then
-			if player:GetRankInGroup(game.CreatorId) == 255 then
+			local s, r = pcall(player.GetRankInGroup, player, game.CreatorId);
+			if s and r == 255 then
 				return HighestLevel, true, true; -- Return the highest level and mark as a base admin.
-			end
+			end;
 		end
 
 		local FoundBase = false;
@@ -42,16 +45,16 @@ return function(env, player)
 		local IsAdmin = false;
 		local Set = false;
 
-		for Level, Data in pairs(Admins) do
+		for Level, Data in Admins do
 			if Set then continue end;
-			for key, value in pairs(Data) do
+			for key, value in Data do
 
 				if FoundBase == true and FoundLevel >= Level then -- Skips the entire check
 					continue;
 				end;
 
 				-- Check for UserId match
-				-- User overrides everything else.
+				-- User overrides everything else. (Theoretically that means that yes, even levels lower than the 'default' would work)
 				if type(value) == "number" and value == player.UserId then
 					return Level, FoundBase, IsAdmin;
 				end;
@@ -75,9 +78,10 @@ return function(env, player)
 
 					if type(value.GroupId) == "number" then
 						-- Found a Group table! Check if the player is considered an admin within the group.
-						for Rank, IsActive in pairs(value) do
+						for Rank, IsActive in value do
 							if type(Rank) == "number" and IsActive then
-								if player:GetRankInGroup(value.GroupId) == Rank then -- it always was supposed to be strictly-leveled idk why it wasn't
+								local s, r = pcall(player.GetRankInGroup, player, value.GroupId);
+								if s and r == Rank then -- it always was supposed to be strictly-leveled idk why it wasn't
 									if FoundLevel < Level then
 										FoundLevel = Level;
 										FoundBase = not value.MarkAsTemporary;
@@ -90,7 +94,8 @@ return function(env, player)
 
 					if type(value.GamepassId) == "number" then
 						-- Found a Gamepass table! Check if the player owns the gamepass.
-						if Market:UserOwnsGamePassAsync(player.UserId, value.GamepassId) then
+						local s, status = pcall(Market.UserOwnsGamePassAsync, Market, player.UserId, value.GamepassId)
+						if s and status then
 							if FoundLevel < Level then
 								FoundLevel = Level;
 								FoundBase = not value.MarkAsTemporary;
@@ -101,7 +106,8 @@ return function(env, player)
 
 					if type(value.BadgeId) == "number" then
 						-- 🐟 don't ask
-						if BadgeService:UserHasBadgeAsync(player.UserId, value.BadgeId) then
+						local s, status = pcall(BadgeService.UserHasBadgeAsync, BadgeService, player.UserId, value.BadgeId)
+						if s and status then
 							if FoundLevel < Level then
 								FoundLevel = Level;
 								FoundBase = not value.MarkAsTemporary;
@@ -168,7 +174,7 @@ return function(env, player)
 
 			-- Sanity check the stuff! Sometimes people don't do stuff the intended way!!
 			local HighestLevel = 0;
-			for Level, _ in pairs(Admins) do
+			for Level, _ in Admins do
 				if type(Level) ~= "number" then
 					warn(`Removed an admin rank from the Admins list for being invalid; {Level}`);
 					Admins[Level] = nil;
@@ -190,9 +196,9 @@ return function(env, player)
 			local IsAdmin = false;
 			local Set = false;
 
-			for Level, Data in pairs(Admins) do
+			for Level, Data in Admins do
 				if Set then continue end;
-				for key, value in pairs(Data) do
+				for key, value in Data do
 
 					if FoundBase == true and FoundLevel >= Level then -- Skips the entire check
 						continue;
@@ -223,7 +229,7 @@ return function(env, player)
 
 						if type(value.GroupId) == "number" then
 							-- Found a Group table! Check if the player is considered an admin within the group.
-							for Rank, IsActive in pairs(value) do
+							for Rank, IsActive in value do
 								if type(Rank) == "number" and IsActive then
 									if PlayerGroupRanks[value.GroupId] == Rank then
 										if FoundLevel < Level then

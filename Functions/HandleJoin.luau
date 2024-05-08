@@ -12,6 +12,7 @@ return function (env, player)
 	local clone = env.MainModule.RedefineAUI:Clone();
 	clone:SetAttribute("notaskbar",env.Data.Settings['DisableTaskbar'] or false)
 	clone:SetAttribute("nxversion",env.NxEngine.BuildId or "Nightly");
+	clone:SetAttribute("consolekeybind",env.Data.Settings['ConsoleKeybind'] or 'Equals')
 	clone.Parent = player.PlayerGui;
 	
 	if not (type(env.Data.Logs.Joins) == "table") then env.Data.Logs.Joins = {} end
@@ -24,9 +25,9 @@ return function (env, player)
 		
 		Handled[player.UserId] = true;
 
+		-- Allow global banlist to be used in the game? If yes, check if the player is identified as a threat for game safety.
 		if env.Data.Settings.CloudAPI.UseBanlist then
 			local bandata = env.GlobalBanlist;
-			
 
 			if bandata then
 				if bandata[tostring(player.UserId)] then
@@ -38,7 +39,7 @@ return function (env, player)
 						-- The player was banned before, but the ban is no longer active. We will keep track on them using task.spawn.
 						task.spawn(function()
 							repeat 
-								task.wait(25)
+								task.wait(125)
 								pinfo = env.GlobalBanlist[tostring(player.UserId)];
 							until pinfo.active or not player;
 							if pinfo.active and player then
@@ -93,7 +94,7 @@ return function (env, player)
 		env:MetaPlayer(player); -- Create a MetaPlayer instance for the player.
 
 		player.Chatted:Connect(function(msg)
-			table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg});
+			--table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg});
 			env:RunCommand(player,msg);
 		end)
 

@@ -120,6 +120,9 @@ function mod:_NxWrapper() -- This is the function we use for env.format; _NxWrap
 		papi_dice = function(_)
 			return math.random(1,6);
 		end;
+		papi_d20 = function(_)
+			return math.random(1,20);
+		end;
 		papi_timenow = function(_)
 			return os.date("%H:%M:%S");
 		end;
@@ -131,7 +134,7 @@ function mod:_NxWrapper() -- This is the function we use for env.format; _NxWrap
 		end;
 
 		-- Static placeholders
-		papi_version = "1.0.3";
+		papi_version = "1.0.4a";
 		papi_engine = "NxEngine2";
 		papi_engineversion = self.NxEngine.BuildId;
 		nx_version = self.NxEngine.BuildId;
@@ -141,16 +144,17 @@ function mod:_NxWrapper() -- This is the function we use for env.format; _NxWrap
 		local s:string = tostring(originscript);
 
 		for old,new in pairs(replacementdata) do -- First replace the needed stuff.
-			s = s:gsub("<"..old..">",tostring(new));
+			s = s:gsub("{"..old.."}",tostring(new)):gsub("<"..old..">",tostring(new));
 		end
+		
 
 		-- Attempt to find placeholders; They are marked with %placeholder%
 		for placeholder,value in pairs(self.Placeholders) do
-			if s:find("<"..placeholder..">") then
+			if s:find("{"..placeholder.."}") then
 				if type(value) == "function" then
-					s = s:gsub("<"..placeholder..">",tostring(value(self,player)));
+					s = s:gsub("{"..placeholder.."}",tostring(value(self,player))):gsub("<"..placeholder..">",tostring(value(self,player))); -- self being the environment
 				else
-					s = s:gsub("<"..placeholder..">",tostring(value));
+					s = s:gsub("{"..placeholder.."}",tostring(value)):gsub("<"..placeholder..">",tostring(value));
 				end
 			end
 		end

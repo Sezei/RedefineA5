@@ -151,7 +151,7 @@ function Module(name,env,Vars,...)
 
 		Task.Data = data
 
-		function Task:wait() 
+		function Task:wait()
 			repeat
 				task.wait()
 			until (self.Complete or self.Cancelled)
@@ -406,6 +406,12 @@ end
 task.spawn(function()
 	while true do
 		task.wait(0.05)
+		for k, tsk in taskQueue do -- remove all redundant key takers (since apparently that holds up the queue???)
+			if k>2 and (not taskQueue[k-1]) then
+				taskQueue[k-1] = tsk;
+				taskQueue[k] = nil; -- clear up its own slot so others can take the spot
+			end
+		end
 		if (#taskQueue > 0) then
 			local Task = taskQueue[1]
 
@@ -542,6 +548,7 @@ task.spawn(function()
 				--If the task was cancelled, get rid of it.
 				table.remove(taskQueue,1)
 				tasks[Task.Key] = nil
+				Task = nil; -- destroy the task
 			end
 		end
 	end

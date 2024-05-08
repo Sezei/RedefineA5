@@ -1,4 +1,9 @@
 return function(env, CompiledData, Module)
+	-- WE HAD OVER A YEAR TO NOTICE THAT COMMAND.DISABLED ISN'T EVEN BEING READ 😭😭😭😭😭😭
+	if CompiledData.Disabled then
+		return;
+	end
+	
 	if not Module then Module = {Name = CompiledData.Name} end;
 	local sanity = env:CommandSC(CompiledData, Module) :: boolean;
 	local load = true;

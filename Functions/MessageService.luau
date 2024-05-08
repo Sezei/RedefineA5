@@ -9,7 +9,9 @@ local module = {};
 function module.new(topic)
 	local self = setmetatable({
 		Topic = topic;
-	}, module);
+	}, {
+		__index = module;
+	});
 	return self;
 end;
 

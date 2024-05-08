@@ -12,7 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 103
+-- BUILD 117
 
 
 local AutoUpdate = { -- Used to determine how to update the system.
@@ -123,10 +123,10 @@ settings.QualifierMethod = "S";
 -- These are the default messages that are used in some commands; You can use them to replace the default messages.
 -- These strings support env.Format!
 settings.DefaultStrings = {
-	Ban_Server = "You have been banned from this server; <reason> | Moderator: <moderator>";
-	Ban_Temporary = "You have been temporarily banned from the game; <reason>. You will be unbanned in <time> | Moderator: <moderator>";
-	Ban_Permanent = "You have been permanently banned from the game; <reason>. | Moderator: <moderator>";
-	Kick = "You have been kicked from the server; <reason> | Moderator: <moderator>";
+	Ban_Server = "You have been banned from this server; {reason} | Moderator: {moderator}";
+	Ban_Temporary = "You have been temporarily banned from the game; {reason}. You will be unbanned in {time} | Moderator: {moderator}";
+	Ban_Permanent = "You have been permanently banned from the game; {reason}. | Moderator: {moderator}";
+	Kick = "You have been kicked from the server; {reason} | Moderator: {moderator}";
 };
 
 -- Remote Trap Settings;
@@ -192,6 +192,11 @@ settings.DisableTaskbar = false; -- false by default.
 -- This will send a notification to the players asking whether or not they want to see their commands.
 settings.SendLevelNotification = true;
 
+-- ConsoleKeybind;
+-- The keybind set to use the command bar.
+-- You can get valid options from Enum.KeyCode.[whatever]
+settings.ConsoleKeybind = 'Equals';
+
 --[===[
 -- DEVELOPMENT TOOLS --
 These are tools that are used for development and are not meant to be used by the public.
@@ -206,8 +211,9 @@ Please do not use these tools unless you know what you're doing.
 settings.DisableDS = false;
 
 -- EnableDebug;
--- This is a tool that will enable debug mode; This will print out a lot of information in the console.
--- This isn't useful at all unless you're planning to use the engine for your own system / game.
+-- This is a tool that will enable debug mode for the specific build Id that the creators are testing for.
+-- Don't enable unless instructed by the developers of the admin.
+-- (Besides, chances are, you won't get anything special from this being on.)
 settings.EnableDebug = false;
 
 ------------------------------------

@@ -71,9 +71,9 @@ return {_NxWrapper_PostInit = function(env)
 
 							local Player = Players:GetPlayerByUserId(TextSource.UserId)
 
-							local r = env:RunCommand(Player, env.Data.Settings.Prefix..CommandData.Name, true);
+							local r = env:RunCommand(Player, env.Data.Settings.Prefix..CommandData.Name..' '..Message, true);
 							if r then
-								
+								--TODO: Return chat messages if 'Auto' or Chat.
 							end
 						end)
 						

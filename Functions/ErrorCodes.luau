@@ -1,3 +1,5 @@
+-- THIS MODULE IS DEPRECATED AND AWAITING REMOVAL!
+
 local module = {}
 
 function module:ResolveCode(code:number)

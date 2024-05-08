@@ -19,8 +19,8 @@ end
 
 local sortedqualifiers; -- To be sorted later.
 
-local function FindPlayers(env, Names, Executor) : {Player}? -- Function that finds players by name or displayname.
-	if string.len(Names) == 0 then return nil end -- If the name is empty, return nil.
+local function FindPlayers(env, Names, Executor) : {Player} -- Function that finds players by name or displayname.
+	if string.len(Names) == 0 then return {} end -- If the name is empty, return nil.
 
 	-- Check if there are any ',' in the name. If there are, split the name into multiple names.
 	local names = string.split(Names,",")
@@ -172,6 +172,7 @@ return function(env, player:Player, msg:string, console:boolean)
 
 	local success:boolean, err:string? = pcall(function()
 		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix or msg:sub(1,4) == "r:a_" then
+			local returnresponse = {Success = nil; Message = nil};
 			local args;
 			if msg:sub(1,4) == "r:a_" then
 				args = ArgSplit(msg:sub(5));
@@ -355,6 +356,7 @@ return function(env, player:Player, msg:string, console:boolean)
 								end
 							else
 								local matches = FindPlayers(env,argtext,player);
+								if not matches then return env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'}); end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "warning";
@@ -391,6 +393,7 @@ return function(env, player:Player, msg:string, console:boolean)
 								end
 							else
 								local matches = FindPlayers(env,argtext,player);
+								if not matches then return env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'}); end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "warning";
@@ -443,13 +446,34 @@ return function(env, player:Player, msg:string, console:boolean)
 									end
 								end
 							else -- It is the last argument.
-								-- Concatenate the rest of the message into the string
-								local string = "";
-								for i = argposition,#args do
-									string = string..args[i].." ";
+								-- check if it's required (why didnt it check it before? 💀)
+								if argrequired then
+									if argtext and argtext ~= "" and argtext ~= " " then
+										-- Concatenate the rest of the message into the string
+										local str = "";
+										for i = argposition,#args do
+											str ..= args[i].." ";
+										end
+										str = str:sub(1,-2); -- Remove the last space
+										sortedarguments[argname] = str;
+									else
+										env:Notify(player,"You need to provide a valid string for argument "..argname,{
+											Type = "warning";
+										});
+										return
+									end
+								else
+									if argtext and argtext ~= "" and argtext ~= " " then
+										local str = "";
+										for i = argposition,#args do
+											str ..= args[i].." ";
+										end
+										str = str:sub(1,-2); -- Remove the last space
+										sortedarguments[argname] = str;
+									else
+										sortedarguments[argname] = argdefault;
+									end;
 								end
-								string = string:sub(1,-2); -- Remove the last space
-								sortedarguments[argname] = string;
 							end
 
 							-- Check if the sortedarguments[argname] is in one of the options; If yes, autocomplete it to match the option
@@ -602,6 +626,7 @@ return function(env, player:Player, msg:string, console:boolean)
 							else
 								-- Text was provided; Check if it matches players.
 								local matches = FindPlayers(env,argtext,player);
+								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "warning";
@@ -633,6 +658,7 @@ return function(env, player:Player, msg:string, console:boolean)
 							else
 								-- Text was provided; Check if it matches players.
 								local matches = FindPlayers(env,argtext,player);
+								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "warning";
@@ -669,6 +695,7 @@ return function(env, player:Player, msg:string, console:boolean)
 							else
 								-- Text was provided; Check if it matches players.
 								local matches = FindPlayers(env,argtext,player);
+								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "warning";
@@ -713,6 +740,7 @@ return function(env, player:Player, msg:string, console:boolean)
 							else
 								-- Text was provided; Check if it matches players.
 								local matches = FindPlayers(env,argtext,player);
+								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "warning";
