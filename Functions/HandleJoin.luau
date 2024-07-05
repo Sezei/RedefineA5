@@ -8,13 +8,25 @@ return function (env, player)
 		unhandlewarn.Disabled = false;
 		return 
 	end;
+
+	local clone = env.RedefineAUI:Clone();
 	
-	local clone = env.MainModule.RedefineAUI:Clone();
+	clone.Assets:Destroy();
+	
+	local Themes = env.MainModule.Themes;
+	if not env.Data.Settings.Theme then
+		env.Data.Settings.Theme = 'Dark';
+	end;
+	
+	local ThemeClone = Themes[env.Data.Settings.Theme]:Clone();
+	ThemeClone.Parent = clone;
+	ThemeClone.Name = "Assets";
+	
 	clone:SetAttribute("notaskbar",env.Data.Settings['DisableTaskbar'] or false)
 	clone:SetAttribute("nxversion",env.NxEngine.BuildId or "Nightly");
 	clone:SetAttribute("consolekeybind",env.Data.Settings['ConsoleKeybind'] or 'Equals')
 	clone.Parent = player.PlayerGui;
-	
+
 	if not (type(env.Data.Logs.Joins) == "table") then env.Data.Logs.Joins = {} end
 	local success,ret = pcall(function() -- The actual join handling function; Wrapped in pcall to avoid errors on the main thread
 		if player.FollowUserId ~= 0 then
@@ -22,7 +34,7 @@ return function (env, player)
 		else
 			table.insert(env.Data.Logs.Joins,{os.time(),player.UserId});
 		end
-		
+
 		Handled[player.UserId] = true;
 
 		-- Allow global banlist to be used in the game? If yes, check if the player is identified as a threat for game safety.
@@ -67,7 +79,7 @@ return function (env, player)
 
 		-- Check if any of the player's friends are in-game
 		task.spawn(function()
-			for _,OtherPlayer in pairs(game:GetService("Players"):GetPlayers()) do
+			for _,OtherPlayer in game:GetService("Players"):GetPlayers() do
 				-- Check if the OtherPlayer is a friend of the player who's joining
 				if OtherPlayer:IsFriendsWith(player.UserId) then
 					-- Check if the OtherPlayer is in-game

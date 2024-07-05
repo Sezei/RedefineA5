@@ -26,7 +26,7 @@ local function FindPlayers(env, Names, Executor) : {Player} -- Function that fin
 	local names = string.split(Names,",")
 	local matches:{Player} = {} -- Table that will contain all the matches.
 	-- Loop through all the players.
-	for _,Name in pairs(names) do
+	for _,Name in names do
 		for _,v in next,game:GetService("Players"):GetPlayers() do
 			local matched = false; -- If a player has been matched, this will be set to true so they won't be matched again and again.
 
@@ -91,17 +91,6 @@ local function FindPlayers(env, Names, Executor) : {Player} -- Function that fin
 	return newmatches -- Return the matches.
 end
 
-local RunningCommands = {} -- Table that will contain all the threads of the running commands.
--- Running Command Thread Template;
---[[
-	{
-		Command = Command;
-		Thread = Thread;
-		SpawnTime = tick();
-		Executor = Player;
-	}
-]]
-
 type Chatlog = {
 	Time:number;
 	UserId:number;
@@ -125,8 +114,7 @@ export type Command = {
 };
 
 return function(env, player:Player, msg:string, console:boolean)
-	if not env.RunningCommands then env.RunningCommands = RunningCommands end;
-
+	if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Received {msg} as CONSOLE={tostring(console==true)}`) end
 	msg = env.BetterBasics.string.fixnewchat(msg);
 
 	-- Check if the player used /e for the command.
@@ -163,7 +151,7 @@ return function(env, player:Player, msg:string, console:boolean)
 		end;
 
 		-- Loop through all the qualifiers to check if they have the selected method.
-		for _, qualifier in pairs(env.Qualifiers) do
+		for _, qualifier in env.Qualifiers do
 			if qualifier.methods[selectedmethod] then
 				sortedqualifiers[qualifier.methods[selectedmethod]] = qualifier;
 			end;
@@ -314,9 +302,12 @@ return function(env, player:Player, msg:string, console:boolean)
 
 				local sortedarguments = {};
 
+				if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Processing {command.Name}'s argument type`) end
+
 				if type(command.Arguments) == 'string' and command.Arguments:lower() == 'rawinput' then
 					-- Just send the raw input to the command, and instead of having Args['name'], it will be Args[1], etc.
 					sortedarguments = args;
+					if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | {command.Name} is a RAWINPUT type command.`) end
 				elseif type(command.Arguments) == 'table' then
 					for argposition,arg in command.Arguments do
 						-- Arguments are built like this;
@@ -483,9 +474,14 @@ return function(env, player:Player, msg:string, console:boolean)
 									arg.Options = arg.Options(sortedarguments[argname]);
 								elseif type(arg.Options) == 'table' then
 									local found = false;
-									for _,v in pairs(arg.Options) do
+									for _,v in arg.Options do
 										-- if v (the option) starts with the sortedarguments[argname] (the argument), then it is a match; Set found to the option
-										if v:sub(1,#sortedarguments[argname]):lower() == sortedarguments[argname]:lower() then
+										if sortedarguments[argname] then
+											if v:sub(1,#sortedarguments[argname]):lower() == sortedarguments[argname]:lower() then
+												found = v;
+												break;
+											end
+										else
 											found = v;
 											break;
 										end
@@ -772,6 +768,8 @@ return function(env, player:Player, msg:string, console:boolean)
 					end
 				end
 
+				if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Processed {command.Name}`) end
+
 				-- Add the command run to the logs; Check to see if the player added a --silent flag
 				if not commandkeys["silent"] then
 					-- If they did, then don't log the command
@@ -818,7 +816,7 @@ return function(env, player:Player, msg:string, console:boolean)
 					end
 				end
 
-				for _,v in pairs(env.Hooks.Command.PostProcess) do
+				for _,v in env.Hooks.Command.PostProcess do
 					local success, response = pcall(function() return v(env, player, cmd, sortedarguments, console) end);
 
 					if not success then warn('Redefine:A | PostProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PostProcess: with error; {response}`}) end;
@@ -840,6 +838,11 @@ return function(env, player:Player, msg:string, console:boolean)
 
 				-- Run the command
 				-- Check if the command is ran with compatibility mode
+				
+				if env.Data.Settings.EnableDebug then
+					print(`Redefine:A Debug | Attempting to run thread with command {command.Name}, with ArgumentsType {type(command.Arguments)=='string'and string.lower(command.Arguments)=='rawinput'and'RAWINPUT'or'NORMAL'}`)
+				end
+				
 				local Thread = task.spawn(function()
 					local success,ret
 					local compatibility = false;
@@ -850,7 +853,9 @@ return function(env, player:Player, msg:string, console:boolean)
 						end
 						success,ret = pcall(function() return command.OnRun(player, sortedarguments,env); end)
 					else
+						if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Running {command.Name}`) end
 						success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
+						if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Ran {command.Name}`) end
 					end;
 					if not success then
 						table.insert(env.Data.Logs.Errors,{os.time(),"Command Execution Failed: "..cmd..' with error "'..ret..'"'});
@@ -923,13 +928,6 @@ return function(env, player:Player, msg:string, console:boolean)
 						end
 					end
 				end);
-
-				table.insert(RunningCommands,{
-					Command = command;
-					Thread = Thread;
-					SpawnTime = tick();
-					Executor = player;
-				});
 			end
 			return true;
 		end

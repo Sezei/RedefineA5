@@ -6,7 +6,7 @@ local loads = 5; -- 5 initial loads (errorcodes, baseenv, signal and VCSDK (twic
 
 -- Pre-Defined modules
 local env = require(script.MainFunctions.BaseEnvironment); -- Load the base environment
-local errorcodes = require(script.MainFunctions.ErrorCodes); -- Load the error codes
+local errorcodes = require(script.SharedFunctions.ErrorCodes); -- Load the error codes
 
 -- Dependencies
 env.SignalHandler = require(script.Dependencies.Signal);
@@ -78,29 +78,6 @@ for _,v in script.MainFunctions:GetChildren() do
 	end;
 end
 
--- Load the Shared functions too
-for _,v in script.SharedFunctions:GetChildren() do
-	if v:IsA("ModuleScript") then
-		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
-		v:Clone().Parent = script.RedefineAUI.Main;
-
-		if betabuild then loads+=1 end
-		local success,mod = pcall(function() return require(v) end)
-		if success then
-			if type(mod) == "table" and mod["_NxWrapper"] then
-				env[v.Name] = mod._NxWrapper(env);
-			elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
-				PostInit[v.Name] = mod._NxWrapper_PostInit;
-			else
-				env[v.Name] = mod;
-			end
-		else
-			warn('Redefine:A | Failed to compile module: '..v.Name..' with error "'..mod..'"');
-			table.insert(env.Data.Logs.Errors,{os.time(),"Module Compilation Failed: "..v.Name..' with error "'..mod..'"'});
-		end
-	end
-end
-
 -- Load the main commands
 for _,v in script.MainCommands:GetChildren() do
 	if v:IsA("ModuleScript") then
@@ -150,6 +127,8 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 	end
 end
 
+env.RedefineAUI = env.MainModule.RedefineAUI;
+
 if firstCall then
 	return function(Loader:Script,Settings:{[string]:any?})
 		if firstCall==false then return end;
@@ -186,7 +165,8 @@ if firstCall then
 							if type(mod) == "table" and mod["_NxWrapper"] then
 								env[v.Name] = mod._NxWrapper(env);
 							elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
-								warn("Redefine:A | User-based PostInit modules are not officially supported and may create vulnerabilities. Use _NxWrapper to suppress.")
+								--warn("Redefine:A | User-based PostInit modules are not officially supported and may create vulnerabilities. Use _NxWrapper to suppress.")
+								-- tested it enough &
 								PostInit[v.Name] = mod._NxWrapper_PostInit;
 							else
 								env[v.Name] = mod;
@@ -194,6 +174,57 @@ if firstCall then
 						else
 							warn('Redefine:A | Failed to compile function: '..v.Name..' with error "'..mod..'"');
 							table.insert(env.Data.Logs.Errors,{os.time(),"Function Compilation Failed: "..v.Name..' with error "'..mod..'"'});
+						end
+					end
+				end
+			end
+			
+			-- Load the MAIN shared functions
+			for _,v in script.SharedFunctions:GetChildren() do
+				if v:IsA("ModuleScript") then
+					table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
+					v:Clone().Parent = env.RedefineAUI.Main;
+
+					if betabuild then loads+=1 end
+					local success,mod = pcall(function() return require(v) end)
+					if success then
+						if type(mod) == "table" and mod["_NxWrapper"] then
+							env[v.Name] = mod._NxWrapper(env);
+						elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
+							PostInit[v.Name] = mod._NxWrapper_PostInit;
+						else
+							env[v.Name] = mod;
+						end
+					else
+						warn('Redefine:A | Failed to compile module: '..v.Name..' with error "'..mod..'"');
+						table.insert(env.Data.Logs.Errors,{os.time(),"Module Compilation Failed: "..v.Name..' with error "'..mod..'"'});
+					end
+				end
+			end
+			
+			if Loader:FindFirstChild("Themes") then
+				for _,Theme in Loader.Themes:GetChildren() do
+					if script.Themes:FindFirstChild(Theme.Name) then
+						warn("Redefine:A | Overwritten a theme! - "..Theme.Name);
+						
+						script.Themes:FindFirstChild(Theme.Name):Destroy();
+					end
+					
+					Theme.Parent = script.Themes;
+					
+					if Theme:FindFirstChild("_Server") then
+						if Theme['_Server']:IsA("ModuleScript") then
+							local success,mod = pcall(function() return require(Theme['_Server']) end)
+							if success then
+								if type(mod) == "table" and mod["_NxWrapper"] then
+									mod._NxWrapper(env);
+								elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
+									warn("Redefine:A | PostInit is not supported for Theme modules.");
+								end
+							else
+								warn('Redefine:A | Failed to compile module: _Server (Server-side Theme module) with error "'..mod..'"');
+								table.insert(env.Data.Logs.Errors,{os.time(),"Module Compilation Failed: _Server (Server-side Theme module) with error \""..mod..'"'});
+							end
 						end
 					end
 				end
@@ -361,5 +392,5 @@ if firstCall then
 		-- return env; -- Return the environment after the loading is done
 	end
 else
-	return nil;
+	return shared.RedefineA;
 end

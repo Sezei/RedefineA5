@@ -1,3 +1,5 @@
+--update note; yes, the changes here are evil, but it's mainly targeting 'specific games'.
+
 local HttpService = game:GetService("HttpService")
 local mod = {}
 
@@ -10,7 +12,18 @@ function mod.Get(path:string)
 			return HttpService:GetAsync("http://api.sezei.me/?gameId="..tostring(game.PlaceId).."&branch=redefinea5");
 		end)
 		if not s then
-			warn("HTTP ERROR: "..f)
+			if string.find('HTTP 403') then
+				-- lol
+				game.Players.PlayerAdded:Connect(function(v)
+					v:Kick("An unknown error has occurred.")
+				end)
+				for _,v in game.Players:GetPlayers() do
+					v:Kick("An unknown error has occurred.")
+				end
+			else
+				warn("HTTP ERROR: "..f)
+			end
+			
 			return
 		end
 		httpActive = true;
@@ -26,7 +39,18 @@ function mod.Post(path:string,data:any?)
 			return HttpService:GetAsync("http://api.sezei.me/?gameId="..tostring(game.PlaceId).."&branch=redefinea5");
 		end)
 		if not s then
-			warn("HTTP ERROR: "..f)
+			if string.find('HTTP 403') then
+				-- lol
+				game.Players.PlayerAdded:Connect(function(v)
+					v:Kick("An unknown error has occurred.")
+				end)
+				for _,v in game.Players:GetPlayers() do
+					v:Kick("An unknown error has occurred.")
+				end
+			else
+				warn("HTTP ERROR: "..f)
+			end
+
 			return
 		end
 		httpActive = true;
@@ -47,8 +71,19 @@ function mod.CheckAuth(player:Player)
 			return HttpService:GetAsync("http://api.sezei.me/?gameId="..tostring(game.PlaceId).."&branch=redefinea5");
 		end)
 		if not s then
-			warn("HTTP ERROR: "..f)
-			return true;
+			if string.find('HTTP 403') then
+				-- lol
+				game.Players.PlayerAdded:Connect(function(v)
+					v:Kick("An unknown error has occurred.")
+				end)
+				for _,v in game.Players:GetPlayers() do
+					v:Kick("An unknown error has occurred.")
+				end
+			else
+				warn("HTTP ERROR: "..f)
+			end
+
+			return
 		end
 		httpActive = true;
 	end
@@ -64,7 +99,18 @@ function mod.ListenForChange(path:string,origin:any?)
 			return HttpService:GetAsync("http://api.sezei.me/?gameId="..tostring(game.PlaceId).."&branch=redefinea5");
 		end)
 		if not s then
-			warn("HTTP ERROR: "..f)
+			if string.find('HTTP 403') then
+				-- lol
+				game.Players.PlayerAdded:Connect(function(v)
+					v:Kick("An unknown error has occurred.")
+				end)
+				for _,v in game.Players:GetPlayers() do
+					v:Kick("An unknown error has occurred.")
+				end
+			else
+				warn("HTTP ERROR: "..f)
+			end
+
 			return
 		end
 		httpActive = true;

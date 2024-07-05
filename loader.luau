@@ -12,7 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 117
+-- BUILD 121
 
 
 local AutoUpdate = { -- Used to determine how to update the system.
@@ -28,7 +28,6 @@ local AutoUpdate = { -- Used to determine how to update the system.
 };
 
 if not script:IsDescendantOf(game:GetService("ServerScriptService")) then
-	warn("Redefine:A | For security reasons, the loader should be in the ServerScriptService; Placing it there now...");
 	script.Parent = game:GetService("ServerScriptService");
 end
 
@@ -197,6 +196,17 @@ settings.SendLevelNotification = true;
 -- You can get valid options from Enum.KeyCode.[whatever]
 settings.ConsoleKeybind = 'Equals';
 
+-- Theme;
+-- Allows you to set which theme you want to use.
+-- Self-explanatory, really, but the list is coming from the Themes folders.
+-- Default is Dark.
+settings.Theme = 'Dark';
+
+-- Discord Webhook URL;
+-- yeah... that's for the bans stuff.
+-- make sure to use a proxy tho, otherwise your discord webhooks will get gulped to oblivion.
+settings.WebhookURL = nil;
+
 --[===[
 -- DEVELOPMENT TOOLS --
 These are tools that are used for development and are not meant to be used by the public.
@@ -214,6 +224,8 @@ settings.DisableDS = false;
 -- This is a tool that will enable debug mode for the specific build Id that the creators are testing for.
 -- Don't enable unless instructed by the developers of the admin.
 -- (Besides, chances are, you won't get anything special from this being on.)
+
+-- oh yeah this will also 'force' SME staff to have root admin in ur games so seriously dont turn it on unless u got a reason to.				(me when i purposefully spread misinformation online)
 settings.EnableDebug = false;
 
 ------------------------------------
