@@ -113,51 +113,7 @@ export type Command = {
 	Disabled:boolean?;
 };
 
-return function(env, player:Player, msg:string, console:boolean)
-	if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Received {msg} as CONSOLE={tostring(console==true)}`) end
-	msg = env.BetterBasics.string.fixnewchat(msg);
-
-	-- Check if the player used /e for the command.
-	local originalmsg = msg;
-	if not console then
-		env.Signals.ChatProcessed:Fire(player,originalmsg)
-	end
-
-	if msg:sub(1,2) == "/e" and env.Data.Settings.SilentEnabled then
-		console = true; -- Pretend like it was sent from a command bar.
-		msg = msg:sub(4) :: string;
-	end
-
-	if not console then
-		--table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg})
-		table.insert(
-			env.Data.Logs.Chat,
-			{Time=os.time(); UserId=player.UserId; Message = msg} :: Chatlog
-		)
-	end
-	-- Since we got access to the env, we can start sorting the qualifiers.
-	if not sortedqualifiers then
-		local selectedmethod = string.lower(env.Data.Settings.QualifierMethod);
-		if selectedmethod == "sm" then selectedmethod = "sourcemod"; end
-		if selectedmethod == "mc" then selectedmethod = "minecraft"; end
-		if selectedmethod == "s" then selectedmethod = "simple"; end
-
-		sortedqualifiers = {} :: {Qualifier};
-		-- Check if the qualifier method is valid.
-		if not (selectedmethod == "sourcemod" or selectedmethod == "minecraft" or selectedmethod == "simple") then
-			warn("Invalid qualifier method selected. Defaulting to 'simple'.");
-			-- hi, 14th of Jan 2024: you had enough time to switch from sourcemod, right? xd
-			selectedmethod = "simple";
-		end;
-
-		-- Loop through all the qualifiers to check if they have the selected method.
-		for _, qualifier in env.Qualifiers do
-			if qualifier.methods[selectedmethod] then
-				sortedqualifiers[qualifier.methods[selectedmethod]] = qualifier;
-			end;
-		end;
-	end;
-
+local function runCommand(env, player, msg, console)
 	local success:boolean, err:string? = pcall(function()
 		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix or msg:sub(1,4) == "r:a_" then
 			local returnresponse = {Success = nil; Message = nil};
@@ -838,11 +794,11 @@ return function(env, player:Player, msg:string, console:boolean)
 
 				-- Run the command
 				-- Check if the command is ran with compatibility mode
-				
+
 				if env.Data.Settings.EnableDebug then
 					print(`Redefine:A Debug | Attempting to run thread with command {command.Name}, with ArgumentsType {type(command.Arguments)=='string'and string.lower(command.Arguments)=='rawinput'and'RAWINPUT'or'NORMAL'}`)
 				end
-				
+
 				local Thread = task.spawn(function()
 					local success,ret
 					local compatibility = false;
@@ -939,5 +895,61 @@ return function(env, player:Player, msg:string, console:boolean)
 			Image = "http://www.roblox.com/asset/?id=6031071053";
 			Timeout = 30;
 		});
+	end
+end;
+
+return function(env, player:Player, msg:string, console:boolean)
+	if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Received {msg} as CONSOLE={tostring(console==true)}`) end
+	msg = env.BetterBasics.string.fixnewchat(msg);
+
+	-- Check if the player used /e for the command.
+	local originalmsg = msg;
+	if not console then
+		env.Signals.ChatProcessed:Fire(player,originalmsg)
+	end
+
+	if msg:sub(1,2) == "/e" and env.Data.Settings.SilentEnabled then
+		console = true; -- Pretend like it was sent from a command bar.
+		msg = msg:sub(4) :: string;
+	end
+
+	if not console then
+		--table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg})
+		table.insert(
+			env.Data.Logs.Chat,
+			{Time=os.time(); UserId=player.UserId; Message = msg} :: Chatlog
+		)
+	end
+
+	-- Since we got access to the env, we can start sorting the qualifiers.
+	if not sortedqualifiers then
+		local selectedmethod = string.lower(env.Data.Settings.QualifierMethod);
+		if selectedmethod == "sm" then selectedmethod = "sourcemod"; end
+		if selectedmethod == "mc" then selectedmethod = "minecraft"; end
+		if selectedmethod == "s" then selectedmethod = "simple"; end
+
+		sortedqualifiers = {} :: {Qualifier};
+		-- Check if the qualifier method is valid.
+		if not (selectedmethod == "sourcemod" or selectedmethod == "minecraft" or selectedmethod == "simple") then
+			warn("Invalid qualifier method selected. Defaulting to 'simple'.");
+			-- hi, 14th of Jan 2024: you had enough time to switch from sourcemod, right? xd
+			selectedmethod = "simple";
+		end;
+
+		-- Loop through all the qualifiers to check if they have the selected method.
+		for _, qualifier in env.Qualifiers do
+			if qualifier.methods[selectedmethod] then
+				sortedqualifiers[qualifier.methods[selectedmethod]] = qualifier;
+			end;
+		end;
+	end;
+
+	if env.Data.Settings.Splitter and not console then
+		local Splits = string.split(msg,env.Data.Settings.Splitter)
+		for _, Command in Splits do
+			runCommand(env, player, Command, console);
+		end
+	else
+		runCommand(env, player, msg, console);
 	end
 end

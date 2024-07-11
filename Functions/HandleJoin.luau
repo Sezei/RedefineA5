@@ -2,11 +2,8 @@ local Handled = {};
 
 return function (env, player)
 	if Handled[player.UserId] == true then
-		local unhandlewarn = script.UnhandledWarn:Clone();
-		unhandlewarn.Parent = player.PlayerGui;
-		task.wait(1);
-		unhandlewarn.Disabled = false;
-		return 
+		return
+		-- cant handle!
 	end;
 
 	local clone = env.RedefineAUI:Clone();
@@ -77,31 +74,33 @@ return function (env, player)
 			end
 		end
 
-		-- Check if any of the player's friends are in-game
-		task.spawn(function()
-			for _,OtherPlayer in game:GetService("Players"):GetPlayers() do
-				-- Check if the OtherPlayer is a friend of the player who's joining
-				if OtherPlayer:IsFriendsWith(player.UserId) then
-					-- Check if the OtherPlayer is in-game
-					if OtherPlayer.Parent then
-						env:Notify(OtherPlayer,"Your friend, "..player.Name..", has joined the server!",{
-							TextColor = Color3.fromRGB(0, 179, 255);
-							Timeout = 15;
-							Options = {
-								["-"] = {Primary = true; Text = "Got it"};
-							};
-						});
-						env:Notify(player,"Your friend, "..OtherPlayer.Name..", is in-game!",{
-							TextColor = Color3.fromRGB(0, 179, 255);
-							Timeout = 15;
-							Options = {
-								["-"] = {Primary = true; Text = "Got it"};
-							};
-						});
+		-- Optionally check if any of the player's friends are in-game
+		if env.Data.Settings.EnableFriendNotifications then
+			task.spawn(function()
+				for _,OtherPlayer in game:GetService("Players"):GetPlayers() do
+					-- Check if the OtherPlayer is a friend of the player who's joining
+					if OtherPlayer:IsFriendsWith(player.UserId) then
+						-- Check if the OtherPlayer is in-game
+						if OtherPlayer.Parent then
+							env:Notify(OtherPlayer,"Your friend, "..player.Name..", has joined the server!",{
+								TextColor = Color3.fromRGB(0, 179, 255);
+								Timeout = 15;
+								Options = {
+									["-"] = {Primary = true; Text = "Got it"};
+								};
+							});
+							env:Notify(player,"Your friend, "..OtherPlayer.Name..", is in-game!",{
+								TextColor = Color3.fromRGB(0, 179, 255);
+								Timeout = 15;
+								Options = {
+									["-"] = {Primary = true; Text = "Got it"};
+								};
+							});
+						end
 					end
 				end
-			end
-		end)
+			end)
+		end;
 
 		env:MetaPlayer(player); -- Create a MetaPlayer instance for the player.
 

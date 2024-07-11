@@ -12,7 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 121
+-- BUILD 123
 
 
 local AutoUpdate = { -- Used to determine how to update the system.
@@ -27,10 +27,6 @@ local AutoUpdate = { -- Used to determine how to update the system.
 	11733597696																;
 };
 
-if not script:IsDescendantOf(game:GetService("ServerScriptService")) then
-	script.Parent = game:GetService("ServerScriptService");
-end
-
 -----
 local settings = {};
 -----
@@ -42,6 +38,15 @@ settings.DatastoreKey = "RedefineA5";
 -- Command Prefix;
 -- You place the symbol/starting phrase at the beginning of the chat and the admin will listen to your command.
 settings.Prefix = "!";
+
+-- Command Splitter;
+-- You can split a single chat message into multiple commands using this splitter. Setting it to nil disables splitting.
+settings.Splitter = " | ";
+
+-- Splitter in Sub-Commands
+-- This is used for binds mainly (when they release); Replaces the split above to the following splitter so it won't get confused.
+-- (make sure it's different; won't work if the main splitter is nil.)
+settings.SubSplitter = " || ";
 
 -- Admins
 -- The admins are the people who can use the commands.
@@ -206,6 +211,11 @@ settings.Theme = 'Dark';
 -- yeah... that's for the bans stuff.
 -- make sure to use a proxy tho, otherwise your discord webhooks will get gulped to oblivion.
 settings.WebhookURL = nil;
+
+-- Enable Friend Notifications
+-- aka, let your friends know when you joined using a notification.
+-- Script-wise it's false by default.
+settings.EnableFriendNotifications = false;
 
 --[===[
 -- DEVELOPMENT TOOLS --
