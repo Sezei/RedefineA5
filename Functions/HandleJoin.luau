@@ -1,3 +1,4 @@
+local http = game:GetService('HttpService') -- post import sezei: oops, forgot to remove this line 👀
 local Handled = {};
 
 return function (env, player)
@@ -132,6 +133,26 @@ return function (env, player)
 				end)
 			end;
 		end)
+		
+		-- Onboarding is only working for the game/group owner
+		local data = env.PersistStorage:Load('Settings'):wait().Data
+		
+		if (env.IsOwner(player) or game:GetService("RunService"):IsStudio()) and (not data.latestChangelog or (data.latestChangelog < env.NxEngine.BuildId)) then
+			local clone = env.MainModule.Onboarding:Clone();
+			clone:SetAttribute("nxversion", env.NxEngine.BuildId or "Nightly")
+			clone:SetAttribute('settings', env.Serializer.encode(env.Data.Settings))
+
+			if not data.latestChangelog then -- not a real setting but we'll add it as a mod ;p
+				data.latestChangelog = 124;
+			end
+				
+			clone:SetAttribute('basesettings', env.Serializer.encode(data))
+			clone.Parent = player.PlayerGui
+			
+			clone.Onboarding:FindFirstChild('Onboarding').Enabled = true;
+				
+			env.Data.AllowOnboardResponse = player.UserId;
+		end
 	end);
 
 	if not success then

@@ -173,7 +173,7 @@ local function runCommand(env, player, msg, console)
 					else
 						-- The player doesn't have permission to run the command.
 						if type(response) == "string" then
-							env:Notify(player,"You can't run this command: "..response,{
+							env:Notify(player,"You are not allowed to run this command: "..response,{
 								Type = "error";
 							})
 						elseif type(response) == "boolean" then
@@ -800,7 +800,7 @@ local function runCommand(env, player, msg, console)
 				end
 
 				local Thread = task.spawn(function()
-					local success,ret
+					local success,ret,clientsuccess,clientret
 					local compatibility = false;
 					if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) then
 						compatibility = true;
@@ -809,11 +809,32 @@ local function runCommand(env, player, msg, console)
 						end
 						success,ret = pcall(function() return command.OnRun(player, sortedarguments,env); end)
 					else
-						if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Running {command.Name}`) end
-						success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
-						if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Ran {command.Name}`) end
+						if command.OnRun then -- server-side
+							success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
+						end
+						if command.OnClientRun then -- client-side (send data stuff)
+							local s = pcall(function()
+								clientsuccess, clientret = env.RemoteFunction:InvokeClient(player, "RunClientCommand", command.Name:lower(), sortedarguments, commandkeys);
+								print(clientsuccess, clientret);
+							end)
+							if not s then
+								clientsuccess = false;
+								clientret = 'General issue: Client disconnect?'
+							end
+						end
 					end;
-					if not success then
+					if typeof(clientsuccess) ~= nil then
+						if not clientsuccess and clientret then
+							env.RemoteEvent:FireClient(player,"Notify","Client-sided error while running "..cmd.."; "..clientret,{
+								Type = "error";
+								Image = "http://www.roblox.com/asset/?id=6031071053";
+								Options = {
+									"Got it";
+								};
+							});
+						end
+					end
+					if typeof(success)=='boolean' and not success then
 						table.insert(env.Data.Logs.Errors,{os.time(),"Command Execution Failed: "..cmd..' with error "'..ret..'"'});
 						if not compatibility then
 							env.RemoteEvent:FireClient(player,"Notify","An error has occured while attempting to run the command; "..ret,{

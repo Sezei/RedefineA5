@@ -60,6 +60,42 @@ function module.table.invert(t)
 	return new;
 end
 
+-- Merges 2 tables into a single table, without overwriting any values.
+-- @param t1 The table to merge into (prioritized).
+-- @param t2 The table to merge the keys from.
+-- @return The merged table.
+function module.table.merge(t1, t2)
+	local result = {}
+	local seenTables = {}
+
+	local function add(value)
+		if type(value) == "table" then
+			if seenTables[value] then
+				return
+			end
+			seenTables[value] = true
+			table.insert(result, value)
+		else
+			for _, v in result do
+				if v == value then
+					return
+				end
+			end
+			table.insert(result, value)
+		end
+	end
+
+	for i = 1, #t1 do
+		add(t1[i])
+	end
+
+	for i = 1, #t2 do
+		add(t2[i])
+	end
+
+	return result
+end
+
 -- Replaces placeholders in a string with their corresponding values.
 -- @param origin The original string.
 -- @param placeholders A table of placeholders and their values.

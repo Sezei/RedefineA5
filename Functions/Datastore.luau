@@ -71,7 +71,6 @@
 
 --Get important instances
 local dataStoreSvc 	= game:GetService("DataStoreService")
-local httpSvc = game:GetService("HttpService")
 local datacache = {};
 
 local disabled = false;
@@ -87,7 +86,7 @@ local categories 	= {}
 local tasks 		= {}
 local taskQueue 	= {}
 
---Making Nano env global after a single call
+--Making R:A env global after a single call
 local api;
 
 local olderror = error
@@ -146,7 +145,7 @@ function Module(name,env,Vars,...)
 		Task.Cache = not Vars.nocache;
 
 		if type(data) == "table" then
-			data = "_tbl:"..httpSvc:JSONEncode(data);
+			data = "_tbl:"..api.Serializer.encode(data);
 		end
 
 		Task.Data = data
@@ -477,14 +476,14 @@ task.spawn(function()
 								if Task.Cache and datacache[Task.Category.Name][Task.Key] then
 									local dat = datacache[Task.Category.Name][Task.Key];
 									if type(dat) == "string" and string.sub(dat,1,5) == "_tbl:" then
-										Task.Data = httpSvc:JSONDecode(string.sub(dat,6));
+										Task.Data = api.Serializer.decode(string.sub(dat,6));
 									else
 										Task.Data = dat
 									end
 								else
 									local dat = Task.Category.Store:GetAsync(Task.Key)
 									if type(dat) == "string" and string.sub(dat,1,5) == "_tbl:" then
-										Task.Data = httpSvc:JSONDecode(string.sub(dat,6));
+										Task.Data = api.Serializer.decode(string.sub(dat,6));
 									else
 										Task.Data = dat
 									end

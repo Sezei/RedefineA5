@@ -563,6 +563,30 @@ function Theme(env)
 
 		Notification:TweenSize(UDim2.new(0, XSize, 0, 40), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true);
 	end
+	
+	function env.CreateHint(title:string, content:string, appearTime:number?)
+		local hint = env.Cardboard("Hint", GUI, {
+			Title = title;
+			Content = content;
+		});
+		-- Get the hint onto the screen
+		hint.Position = UDim2.new(0.5, 0, -1, 0);
+		hint:TweenPosition(UDim2.new(0.5, 0, 0, 20), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true);
+
+		-- Get the text length
+		local lenght = #content;
+
+		-- Wait for the hint to be on screen (+0.2 grace period)
+		task.wait(0.5);
+
+		-- Wait for the hint to be off screen
+		task.wait( appearTime or math.clamp(lenght / 20, 7.5, 20) );
+
+		-- Get the hint off the screen
+		hint:TweenPosition(UDim2.new(0.5, 0, -1, 0), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.3, true, function()
+			hint:Destroy();
+		end);
+	end
 
 	function env.CreateList(title:string, items:{any: string|number}?, options:{string: boolean}?)
 		if not items then items = {} end;

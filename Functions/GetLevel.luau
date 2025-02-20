@@ -21,6 +21,8 @@ return function(env, player)
 		-- Sanity check the stuff! Sometimes people don't do stuff the intended way!!
 		local HighestLevel = 0;
 		for Level, _ in Admins do
+			Level = tonumber(Level);
+			
 			if type(Level) ~= "number" then
 				warn(`Removed an admin rank from the Admins list for being invalid; {Level}`);
 				Admins[Level] = nil;
@@ -46,6 +48,7 @@ return function(env, player)
 		local Set = false;
 
 		for Level, Data in Admins do
+			Level = tonumber(Level);
 			if Set then continue end;
 			for key, value in Data do
 

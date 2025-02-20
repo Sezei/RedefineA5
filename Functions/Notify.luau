@@ -41,13 +41,24 @@ return function(env, player, text, data)
 				end
 			elseif key == "CommandSent" then
 				env:RunCommand(player,env.Data.Settings.Prefix..uid,true);
+			elseif key == "OnboardResponse" and env.Data.AllowOnboardResponse then
+				if env.Data.AllowOnboardResponse == player.UserId then
+					env.Data.AllowOnboardResponse = nil; -- free up
+					
+					local Received = game:GetService("HttpService"):JSONDecode(uid);
+					
+					task.spawn(function()
+						env.ValidateSettings(Received);
+						task.wait();
+						env.PersistStorage:Save('Settings', Received);
+						
+						env.Data.Settings = Received;
+					end)
+				else
+					player:Destroy(); -- no.
+				end
 			elseif env.RemoteEventKeys and env.RemoteEventKeys[key] then
 				env.RemoteEventKeys[key](player,uid,info,...)
-			else
-				-- Unknown key!
-				if env.Data.Settings.RemoteTrap and env.Data.Settings.RemoteTrap.Enabled then
-					env.Data.Settings.RemoteTrap.Punishment(env, player, text);
-				end
 			end
 		end)
 	end

@@ -2,23 +2,25 @@
 local firstCall = true; -- Track if this is the first time the module is being called upon
 local betabuild = false; -- Track if this is a beta build; Detected if the module contains a localscript named 'THIS IS A BETA BUILD'
 local loadtime = os.clock(); -- Tracks the time it took to load the system
-local loads = 5; -- 5 initial loads (errorcodes, baseenv, signal and VCSDK (twice))
+local loads = 3; -- 3 initial loads (errorcodes, baseenv, and signal)
 
 -- Pre-Defined modules
 local env = require(script.MainFunctions.BaseEnvironment); -- Load the base environment
 local errorcodes = require(script.SharedFunctions.ErrorCodes); -- Load the error codes
+local serializer = require(script.SharedFunctions.Serializer); -- Custom serializer
 
 -- Dependencies
 env.SignalHandler = require(script.Dependencies.Signal);
 
--- Check if we're in studio (avoid loading VCSDK)
--- VCSDK is temporarily disabled due to an issue related to spatial voice;
--- It will be re-enabled once Roblox releases an official API!
--- Sorry!!
-
--- Add for dependency check
+-- Add for command dependency check (dependencies = {"InStudio"})
 env.NotInStudio = not game:GetService("RunService"):IsStudio();
 env.InStudio = game:GetService("RunService"):IsStudio();
+
+-- Check if we're in studio (avoid loading VCSDK)
+if not env.InStudio then
+	loads+=1;
+	env.VCSDK = require(script.Dependencies.VCSDK); -- Load the VCSDK
+end
 
 -- Create essential signals
 env.Signals = {};
@@ -31,7 +33,6 @@ env.Signals.CommandRegistered = env.SignalHandler.new({Name = "CommandRegistered
 -- DEPRECATED! Warn the user that this is deprecated if they use it.
 env.Signals.CommandProcessed = env.SignalHandler.new({Name = "Processed"; Deprecated = true; Supersededby = 'env.Hooks.Command.Ran'}); -- When a command has already been ran, this will be fired.
 
-
 -- Hooks; Can determine the output
 env.Hooks = {
 	Command = {};
@@ -40,6 +41,8 @@ env.Hooks = {
 env.Hooks.Command.PreProcess = {}; -- Runs if the engine thinks this is a command (message begins with the prefix) -> Environment, Executor:Player, Command:string, Arguments:table{string}, Console:boolean
 env.Hooks.Command.PostProcess = {}; -- Runs after the command arguments are parsed -> Environment, Executor:Player, Command:CommandData, Arguments:table{parsed arguments}, Console:boolean
 env.Hooks.Command.Ran = {}; -- Supersedes Signals.Processed; Runs after the command has been ran -> Environment, Executor:Player, RunContext:table{CommandData, Arguments, Keys, etc.}
+
+env.Serializer = serializer;
 
 local PostInit = {};
 
@@ -56,6 +59,16 @@ function env.warn(code, ...)
 		warn("Redefine:A | ",...)
 	end
 end
+
+-- Create the events
+table.insert(env.Data.Logs.System, {os.time(), nil, "Handling event creations"});
+env.RemoteEvent = Instance.new("RemoteEvent");
+env.RemoteEvent.Name = "NxRemoteEvent";
+env.RemoteEvent.Parent = game.ReplicatedStorage;
+
+env.RemoteFunction = Instance.new("RemoteFunction");
+env.RemoteFunction.Name = "NxRemoteFunction";
+env.RemoteFunction.Parent = game.ReplicatedStorage;
 
 -- Load the main functions
 for _,v in script.MainFunctions:GetChildren() do
@@ -94,16 +107,6 @@ for _,v in script.MainCommands:GetChildren() do
 	end
 end
 
--- Create the events
-table.insert(env.Data.Logs.System, {os.time(), nil, "Handling event creations"});
-env.RemoteEvent = Instance.new("RemoteEvent");
-env.RemoteEvent.Name = "NxRemoteEvent";
-env.RemoteEvent.Parent = game.ReplicatedStorage;
-
-env.RemoteFunction = Instance.new("RemoteFunction");
-env.RemoteFunction.Name = "NxRemoteFunction";
-env.RemoteFunction.Parent = game.ReplicatedStorage;
-
 env.RemoteFunction.OnServerInvoke = function(player, key, args)
 	if key == "GetCommands" then
 		local Commands = {};
@@ -121,6 +124,7 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 		-- Return the commands
 		return Commands;
 	elseif key == "GetMethod" then
+		print(env.Data.Settings);
 		return env.Data.Settings.QualifierMethod
 	elseif key == "GetLevel" then
 		return env:GetLevel(game:GetService("Players"):GetPlayerByUserId(args));
@@ -137,7 +141,12 @@ if firstCall then
 		if not (typeof(Loader) == "Instance") then error("Loader must be an instance") end
 		if not Loader:IsA("Script") then error("Loader must be a script") end
 		-- Check if there's a settings module
+		
+		Settings.RemoteTrap = nil; -- NO NONNONONONO
+		
 		if Settings then
+			env.Data.BaseSettings = Settings;
+
 			if not env.Data then env.Data = {} end;
 			if not env.Data.Settings then env.Data.Settings = {} end;
 			if type(Settings) == "table" then
@@ -146,12 +155,63 @@ if firstCall then
 				end
 			end
 
+			env.Data.Settings = env.ValidateSettings(env.Data.Settings);
+
 			env.Data.Ingame.Admins = env.Data.Settings.Admins;
+			env.HighestLevel = 1;
+			for Level, _ in env.Data.Ingame.Admins do
+				Level = tonumber(Level);
+
+				if Level > env.HighestLevel then
+					env.HighestLevel = Level;
+				end
+			end
 		else
-			error("Redefine:A | Settings were not found while loading! Ceasing load.");
+			error("Redefine:A | BaseSettings were not found while loading! Ceasing load.");
 		end
 
 		env.Storage = env.Datastore(Settings.DatastoreKey, env);
+		env.PersistStorage = env.Datastore(Settings.DatastoreKey..'_persist', env, {nocache=true;nosandbox=true});
+
+		local data = env.PersistStorage:Load('Settings'):wait().Data;
+		print(data)
+
+		if not data then
+			local saveTime = os.clock()
+			env.PersistStorage:Save('Settings', env.ValidateSettings(Settings)):wait(); -- dont continue until finished saving
+			print('Settings saved in '..os.clock()-saveTime)
+			env.Data.Settings = Settings;
+			print(env.Data.Settings)
+		else
+			data = env.ValidateSettings(data);
+			--merge tables (specifically the Admins table)
+			for Level,LevelData in data.Admins do
+				LevelData.GroupName = Settings.Admins[tonumber(Level)].GroupName;
+				LevelData.Admin = Settings.Admins[tonumber(Level)].Admin;
+				
+				for k,v in LevelData do
+					if tonumber(k) and type(v) == 'table' then
+						LevelData[k] = nil;
+					end
+				end
+				
+				for k,v in Settings.Admins[tonumber(Level)] do
+					if type(v) == 'number' or type(v) == 'string' then
+						if not env.Search(LevelData, v) then
+							table.insert(LevelData, v);
+						end
+					end;
+					
+					if type(v) == 'table' then
+						LevelData[k] = v;
+					end;
+				end
+			end
+			
+			env.Data.Settings = data;
+			print(env.Data.Settings);
+		end
+
 
 		-- Load the user's functions (if there are any)
 		local function LoadModules()
@@ -165,8 +225,6 @@ if firstCall then
 							if type(mod) == "table" and mod["_NxWrapper"] then
 								env[v.Name] = mod._NxWrapper(env);
 							elseif type(mod) == "table" and mod["_NxWrapper_PostInit"] then
-								--warn("Redefine:A | User-based PostInit modules are not officially supported and may create vulnerabilities. Use _NxWrapper to suppress.")
-								-- tested it enough &
 								PostInit[v.Name] = mod._NxWrapper_PostInit;
 							else
 								env[v.Name] = mod;
@@ -178,7 +236,7 @@ if firstCall then
 					end
 				end
 			end
-			
+
 			-- Load the MAIN shared functions
 			for _,v in script.SharedFunctions:GetChildren() do
 				if v:IsA("ModuleScript") then
@@ -201,17 +259,17 @@ if firstCall then
 					end
 				end
 			end
-			
+
 			if Loader:FindFirstChild("Themes") then
 				for _,Theme in Loader.Themes:GetChildren() do
 					if script.Themes:FindFirstChild(Theme.Name) then
 						warn("Redefine:A | Overwritten a theme! - "..Theme.Name);
-						
+
 						script.Themes:FindFirstChild(Theme.Name):Destroy();
 					end
-					
+
 					Theme.Parent = script.Themes;
-					
+
 					if Theme:FindFirstChild("_Server") then
 						if Theme['_Server']:IsA("ModuleScript") then
 							local success,mod = pcall(function() return require(Theme['_Server']) end)
@@ -244,12 +302,18 @@ if firstCall then
 				if Loader.Commands:FindFirstChild("_Disabled") then
 					Loader.Commands._Disabled:Destroy();
 				end
-				
+
 				--Support for actual categories will be added eventually. I promise. ;p
-				
+
 				local FakeCommands = Loader.Commands:Clone();
 				FakeCommands.Parent = game:GetService("ReplicatedStorage");
 				FakeCommands.Name = 'RA5_Commands';
+				
+				-- clone main commands too
+				for _,Command in script.MainCommands:GetChildren() do
+					Command:Clone().Parent = FakeCommands;
+				end
+				
 				for _,v in Loader.Commands:GetChildren() do
 					if v:IsA("ModuleScript") then
 						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
@@ -325,7 +389,7 @@ if firstCall then
 			LoadModules();
 			print("Redefine:A | Loaded "..loads.." modules in total; Took "..(os.clock()-loadtime).." seconds!");
 		end
-		
+
 		-- PostInit modules
 		for k,mod in PostInit do
 			env[k] = mod(env);
@@ -342,10 +406,9 @@ if firstCall then
 
 		env.GlobalBanlist = {};
 
-		local LastCheck = tick(); -- Get time
 		task.spawn(function()
 			table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
-			
+
 			local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
 			if suc and dat and dat.success then
 				env.GlobalBanlist = dat;
@@ -353,17 +416,14 @@ if firstCall then
 				warn("Failed to update the global banlist! Is HTTPService enabled?");
 			end
 
-			while task.wait() do
-				if (LastCheck + 120) <= tick() then
-					-- Check the banlist again to see if any bans have updated.
-					table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
-					local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
-					if suc and dat and dat.success then
-						env.GlobalBanlist = dat;
-					else
-						warn("Failed to update the global banlist!");
-					end
-					LastCheck = tick();
+			while task.wait(30) do
+				-- Check the banlist again to see if any bans have updated.
+				table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
+				local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
+				if suc and dat and dat.success then
+					env.GlobalBanlist = dat;
+				else
+					warn("Failed to update the global banlist!");
 				end
 			end
 		end)
@@ -389,7 +449,7 @@ if firstCall then
 			Signals = env.Signals; -- Add the signals; This might be a risky move due to the fact that it returns an unprotected table.
 		};
 
-		-- return env; -- Return the environment after the loading is done
+		-- return env; -- Return the environment after the loading is done; Not recommended for the vanilla build but do whatever if you're forking this. It's your game/system.
 	end
 else
 	return shared.RedefineA;

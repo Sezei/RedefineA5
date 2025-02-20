@@ -17,6 +17,39 @@ Client.ClientFunctions = {
 	-- [ReceivingKey] = function(...) return non-tuple-value end;
 }
 
+function Client.PlaySound(AudioString : string) : nil
+	local Sound = Instance.new("Sound");
+	Sound.SoundId = AudioString;
+	Sound.Parent = Client.GUI;
+	Sound.Looped = false;
+	task.spawn(function()
+		if not Sound.IsLoaded then Sound.Loaded:Wait() end;
+		Sound:Play();
+		Sound.Ended:Connect(function()
+			Sound:Destroy();
+		end);
+	end)
+
+	return nil;
+end;
+
+function Client.CreateUID()
+	local UID = "";
+	for i = 1, 24 do
+		UID = UID .. string.char(math.random(65, 90));
+	end
+	return UID;
+end
+
+function Client.ToHex(color:Color3|string)
+	if type(color) == "string" then
+		return color; -- Assume it's already a hex color.
+	elseif typeof(color) == "Color3" then
+		return string.format("#%02X%02X%02X", color.R * 255, color.G * 255, color.B * 255);
+	else
+		return "#FFFFFF";
+	end;
+end;
 
 -- Core functions of the client environment
 function Client.AddAsset(env, asset)

@@ -1,5 +1,3 @@
---update note; yes, the changes here are evil, but it's mainly targeting 'specific games'.
-
 local HttpService = game:GetService("HttpService")
 local mod = {}
 

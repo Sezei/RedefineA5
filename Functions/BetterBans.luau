@@ -1026,7 +1026,7 @@ function mod:_NxWrapper_PostInit()
 			Level = 3;
 
 			OnRun = function(env, Executor, Arguments, Keys)
-				local Load = Datastore:Load('BanProfile_'..tostring(Arguments.Player.UserId)):wait();
+				local Load = Datastore:Load('BanProfile_'..tostring(Arguments.User.UserId)):wait();
 				local LoadData = Load.Data :: BanData?;
 
 				if LoadData and LoadData.History then

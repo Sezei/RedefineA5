@@ -12,8 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 123
-
+-- BUILD 126
 
 local AutoUpdate = { -- Used to determine how to update the system.
 	-- Autoupdate is enabled?
@@ -84,8 +83,16 @@ settings.Admins = {
 		};
 		]=]
 
-		253925749; -- 0bBinary (Creator of the Engine)
+		13418337; -- Sezei (Creator of the Engine)
 		1892103295; -- Cytrexon (Co-Creator of the Engine)
+
+		{
+			GroupId = 3984407;
+			MarkAsTemporary = false;
+			[255] = true;
+			[254] = true;
+			[9] = true;
+		};
 	};
 	[4] = {
 		GroupName = "Super Admin";	
@@ -132,29 +139,6 @@ settings.DefaultStrings = {
 	Ban_Permanent = "You have been permanently banned from the game; {reason}. | Moderator: {moderator}";
 	Kick = "You have been kicked from the server; {reason} | Moderator: {moderator}";
 };
-
--- Remote Trap Settings;
--- RemoteTrap is a feature that allows you to punish players for scraping the game.
--- It is not recommended to disable this feature, but you can do so by setting Enabled to false.
--- Punishments are executed when a player is detected scraping the game using old methods such as BackdoorLocator and such.
--- This cannot detect RemoteSpy.
-settings.RemoteTrap = {
-	Enabled = true;
-	Punishment = function(env, player, givenstring) -- givenstring is the string that was found in the player's scripts.
-		-- Notify all online admins.
-		for _,v in pairs(game:GetService("Players"):GetPlayers()) do
-			if env:GetLevel(v) >= 2 then
-				env:Notify(v,player.Name.." has been kicked for triggering a remote trap!",{
-					Type = "critical";
-					Timeout = 30;
-				});
-			end
-		end
-
-		-- Kick the player.
-		player:Kick("You have been automatically kicked for attempting to scrape the game.");
-	end;
-}
 
 -- CloudAPI Settings;
 -- CloudAPI is a feature that allows you to use the CloudAPI, such as the GlobalBanlist (Maintained by the administrative team of SME).
@@ -238,23 +222,11 @@ settings.DisableDS = false;
 -- oh yeah this will also 'force' SME staff to have root admin in ur games so seriously dont turn it on unless u got a reason to.				(me when i purposefully spread misinformation online)
 settings.EnableDebug = false;
 
-------------------------------------
------------- DANGER ZONE -----------
-------------------------------------
--- Any touch could ruin the admin --
-------------------------------------
--- 	 Only touch if you know what  --
--- 			you're doing.         --
-------------------------------------
---      You have been warned.     --
-------------------------------------
-
--- Hacky way to get into the creator marketplace without the fail stuff. ugh..
-
-local thing = require(script["ForceIntoCM-itor"])
-
+-- actual loader
+-- i mean how do you want to call the admin module
+-- it's not magic
 if AutoUpdate[1] then
-	require(thing:WaitForChild(AutoUpdate[2]))(script,settings);
+	require(AutoUpdate[2])(script,settings);
 else
 	require(script.MainModule)(script,settings);
 end

@@ -19,10 +19,20 @@ return function(env, CompiledData, Module)
 	if CompiledData.Dependencies then
 		for _,dependency in CompiledData.Dependencies do
 			if not env[dependency] then
-				warn('Redefine:A | Command "'..Module.Name..'" has a dependency on "'..dependency..'" which is not loaded and/or does not exist; Skipping...');
-				table.insert(env.Data.Logs.Errors,{os.time(),"Command Dependency Check Failed: "..Module.Name..' with dependency "'..dependency..'"'});
+				warn('Redefine:A | Command "'..Module.Name..'" has a dependency on "'..dependency..'" which does not exist in the environment.');
+				table.insert(env.Data.Logs.Errors,{os.time(),"Command Dependency Check: "..Module.Name..' is "'..dependency..'" and refused to load.'});
 				load = false;
 				return;
+			end
+		end
+	end;
+	
+	-- Check the dependencies
+	if CompiledData.SoftDependencies then
+		for _,dependency in CompiledData.SoftDependencies do
+			if not env[dependency] then
+				print('Redefine:A | Command "'..Module.Name..'" has a soft dependency on "'..dependency..'" which does not exist in the environment; Continuing load.');
+				table.insert(env.Data.Logs.Errors,{os.time(),"Soft Command Dependency Check: "..Module.Name..' is missing "'..dependency..'"'});
 			end
 		end
 	end;
@@ -33,7 +43,7 @@ return function(env, CompiledData, Module)
 			load = false;
 			return;
 		else
-			warn('Redefine:A | Command "'..CompiledData.Name..'" is being overwritten!')
+			print('Redefine:A | Command "'..CompiledData.Name..'" is being overwritten!')
 		end
 	end
 	if not (type(env.Commands) == "table") then env.Commands = {} end

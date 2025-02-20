@@ -35,6 +35,7 @@ local Players = game:GetService("Players");
 env.InternalEvent = InternalEvent;
 env.RemoteEvent = RemoteEvent;
 env.RemoteFunction = RemoteFunction;
+env.Player = LocalPlayer;
 
 -- Wait for LocalPlayer to exist
 if not LocalPlayer then
@@ -85,6 +86,7 @@ InternalEvent.Event:Connect(function(Action, UID, Option)
 end);
 
 local LastCommands = {}; -- Keep track of 5 commands the user has executed, so they can be accessed with the sidemenu to be ran quickly again.
+env.Commands = {};
 
 local QuickActionAPI = nil;
 local QuickActionCursor = nil;
@@ -135,20 +137,51 @@ local LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId);
 local StoredLevels = {};
 StoredLevels[LocalPlayer.UserId] = LocalLevel;
 
+task.spawn(function()
+	local cmdstoremove = {};
+	for _,v in Commands do
+		if v.Level >= LocalLevel then
+			cmdstoremove[v.Name] = true;
+		end
+	end
+	
+	pcall(function()
+		for _,v:TextChatCommand in game:GetService("TextChatService"):FindFirstChild("TextChatCommands"):GetChildren() do
+			if table.find(cmdstoremove, '/'..v.PrimaryAlias) then
+				v:Destroy();
+			end
+		end
+	end)
+end)
+
+function RegisterModule(Module)
+	if not Module:IsA("ModuleScript") then return end;
+	pcall(function()
+		local Data = require(Module);
+		if LocalLevel >= Data.Level then
+			if Data.QuickActions then
+				table.insert(QuickActionTabs, Data.QuickActions);
+			end
+			if Data.OnClientLoad then
+				Data.OnClientLoad(env, LocalLevel>=Data.Level);
+			end
+			if Data.OnClientRun then
+				env.Commands[Data.Name:lower()] = Data.OnClientRun; -- Store the command for future use.
+			end
+		end
+	end);
+end
+
 if not Settings.NoTaskbar then
 	if Commands['kick'].Level > LocalLevel then
 		QuickActionTabs.InstantKick = nil;
 	end
 
+	CommandModules.ChildAdded:Connect(function(Module)
+		RegisterModule(Module);
+	end)
 	for _,Module in (CommandModules:GetChildren()) do
-		pcall(function()
-			local Data = require(Module);
-			if LocalLevel >= Data.Level then
-				if Data.QuickActions then
-					table.insert(QuickActionTabs, Data.QuickActions);
-				end
-			end
-		end);
+		RegisterModule(Module);
 	end
 end;
 
@@ -291,20 +324,28 @@ end
 -- Commandbar handler
 local Commandbar = GUI:FindFirstChild("CommandBar");
 
+function OpenConsole()
+	if not StoredLevels[LocalPlayer.UserId] then -- Chances are, the level won't change, so lets just check it once and avoid lag entirely. :3
+		LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId); -- Update the local level stored in the client
+		StoredLevels[LocalPlayer.UserId] = LocalLevel; -- Update the stored level in the client
+	end;
+	Commandbar:TweenPosition(UDim2.new(0.5, 0, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true,function()
+		Commandbar:FindFirstChild("Input").Text = "";
+		Commandbar.Warnings.Visible = true;
+	end);
+	Commandbar:FindFirstChild("Input"):CaptureFocus();
+end
+
+Sidemenu.Content.ConsoleOpener.Open.MouseButton1Click:Connect(function()
+	OpenConsole();
+end);
+
 UserInputService.InputBegan:Connect(function(input)
 	-- Ignore the input if there's already an active input field
 	if UserInputService:GetFocusedTextBox() then return end;
 
 	if input.KeyCode == (Settings.ConsoleKeybind and Enum.KeyCode[Settings.ConsoleKeybind] or Enum.KeyCode.Equals) then
-		if not StoredLevels[LocalPlayer.UserId] then -- Chances are, the level won't change, so lets just check it once and avoid lag entirely. :3
-			LocalLevel = RemoteFunction:InvokeServer("GetLevel", LocalPlayer.UserId); -- Update the local level stored in the client
-			StoredLevels[LocalPlayer.UserId] = LocalLevel; -- Update the stored level in the client
-		end;
-		Commandbar:TweenPosition(UDim2.new(0.5, 0, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true,function()
-			Commandbar:FindFirstChild("Input").Text = "";
-			Commandbar.Warnings.Visible = true;
-		end);
-		Commandbar:FindFirstChild("Input"):CaptureFocus();
+		OpenConsole();
 	end
 end);
 
@@ -866,7 +907,7 @@ if Settings.NoTaskbar then
 end
 
 -- Go through all of the QuickActionTabs
-if not Settings.NoTaskbar then
+if not Settings.NoTaskbar then	
 	for Key,TabData in (QuickActionTabs) do
 
 		local locked = TabData.Tab.Locked or false;
@@ -922,27 +963,7 @@ RemoteEvent.OnClientEvent:Connect(function(...)
 	elseif EventName == "GetPM" then
 		env.ReceivePrivateConversation(Arguments[1], Arguments[2]);
 	elseif EventName == "Hint" then
-		local hint = env.Cardboard("Hint", GUI, {
-			Title = Arguments[1];
-			Content = Arguments[2];
-		});
-		-- Get the hint off the screen
-		hint.Position = UDim2.new(0.5, 0, -1, 0);
-		hint:TweenPosition(UDim2.new(0.5, 0, 0, 20), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true);
-
-		-- Get the text length
-		local lenght = #Arguments[2];
-
-		-- Wait for the hint to be on screen
-		task.wait(0.3);
-
-		-- Wait for the hint to be off screen
-		task.wait( Arguments[3] or math.clamp(lenght / 30, 5, 20) );
-
-		-- Get the hint off the screen
-		hint:TweenPosition(UDim2.new(0.5, 0, -1, 0), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.3, true, function()
-			hint:Destroy();
-		end);
+		env.CreateHint(Arguments[1], Arguments[2], Arguments[3])
 	elseif env.ClientEvents[EventName] then
 		env.ClientEvents[EventName](unpack(Arguments));
 	end
@@ -961,9 +982,23 @@ RemoteFunction.OnClientInvoke = function(...)
 	elseif FunctionName == "Prompt" then
 		local _, UID = env.CreatePrompt(Arguments[1]);
 		return UID;
+	elseif FunctionName == "RunClientCommand" then
+		if not env.Commands[Arguments[1]:lower()] then
+			return false, "Command is not registered on the Client-Side. (Are you using a dedicated Command module?)";
+		end;
+		--
+		local s,f = pcall(function()
+			env.Commands[Arguments[1]:lower()](env, Arguments[2], Arguments[3]);
+		end);
+		if not s then
+			warn('An error occurred with the command: '..f);
+		end;
+		return s,f;
 	elseif env.ClientFunctions[FunctionName] then
 		return env.ClientFunctions[FunctionName](unpack(Arguments));
 	end
+	
+	return warn("Unknown client function call attempt: "..FunctionName);
 end;
 
 Players.PlayerAdded:Connect(function(player)
