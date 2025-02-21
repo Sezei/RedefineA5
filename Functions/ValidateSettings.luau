@@ -46,7 +46,15 @@ return function(Settings)
 		else
 			ReturnedSettings.Admins[Level] = nil -- clear the previous iteration
 			ReturnedSettings.Admins[tonumber(Level)] = CloneTable(AdminData)
-			
+
+			-- CHECK IF THE ADMIN WAS TEMPORARY!!
+			for k, v in ReturnedSettings.Admins[tonumber(Level)] do
+				if type(v) == "table" then
+					if v.Temporary then
+						ReturnedSettings.Admins[tonumber(Level)][k] = nil;
+					end
+				end
+			end
 		end
 	end
 	
