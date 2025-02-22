@@ -1,6 +1,8 @@
 ## Redefine:A 5's Engine
 The engine used by Redefine:A 5 is NxEngine2, which is the same engine that powers [Nano](https://devforum.roblox.com/t/nano-the-non-intrusive-admin-panel/1734987). It is a direct fork of Redefine:A 4, which uses NxEngine, rewritten from the ground up in order to make the system far more customizable while keeping the loader as lightweight as possible.
 
+The documentation here is for what is likely *you* will use, rather than 
+
 ## The Engine
 The engine is the core of Redefine:A 5. It is responsible for loading and running the modules that the developers of the game attach to it. It is not responsible for the commands, as the functions that are made for it (eg. MainFunctions) will handle them. The engine is simply there to load the modules and run them, while also keeping track of the modules that are loaded, and anything that is attached to the engine.
 
@@ -42,7 +44,10 @@ Note: **In the rare cases where the environment is flawed, the engine will not l
 ## Cheatsheet specific for Redefine:A 5
 Since technically the environment can be changed, nothing here is guaranteed to be accurate, but it's 100% accurate if none of the modules are forked/changed within the system.
 
-`BaseEnvironment` -> Mentioned in the previous section. It's the base environment that is passed to the modules.
+`BaseEnvironment` -> Mentioned in the previous section. It's the base environment that is passed to the modules. Not a function.
+* `env.IsOwner(player|number)` -> Returns whether the `player` or `UserId:number` is the game's owner.
+* `env.Search(array:{string|number|boolean}, value:string|number|boolean)` -> Attempts to find a value in a table regardless of keys. Replaces `table.find()`.
+* `env.CloneTable(array:{any})` -> Clones the table to a different memory address.
 
 `BetterBasics` -> A module that contains a few functions that are used by the engine, and can be used outside of it. Mainly made for stuff such as `BetterBasics.string.fixnewchat` which fixes the new chat's issues with the rich-text characters. Documentation is unnecessary for this module, as it's mainly internal, but can be easily read through the source.
 
@@ -63,7 +68,7 @@ Since technically the environment can be changed, nothing here is guaranteed to 
 * `env.format(string, replacementdata, player?)` -> Formats the string using the replacement data. Returns `string`.
 
 `GetLevel` -> A module that contains the functions that are used to get the level of a player.
-* `env:GetLevel(player)` -> Returns the level of the player. Returns `number`.
+* `env:GetLevel(player|number)` -> Returns the level of the player (or player's UserId). Returns `tuple` ( `Level:number`, `BaseAdmin:boolean`, `ConsideredAdmin:boolean` ).
 
 `MessageService` -> A module made to wrap the MessagingService API. Uses a single 'listening' channel in order to not block the MessagingService API, hence making it possible to use it without having to worry about it blocking the MessagingService API from creating more channels.
 * `env.MessageService:Push(channel, data)` -> Publishes the data to the channel.
@@ -71,6 +76,7 @@ Since technically the environment can be changed, nothing here is guaranteed to 
 * `env.MessageService:Unlisten(channel)` -> Unsubscribes from the channel.
 * `env.MessageService:Once(channel, callback)` -> Subscribes to the channel, but only once. Once the callback is called, it will unsubscribe from the channel. Returns `Listener`.
 * `env.MessageService:Wait(channel, callback)` -> Waits for the channel to be published to.
+* `env.MessageService:Promise()` -> Returns promise.
 
 `MetaPlayer` -> *The Big One*. Created as a means to use player as a data point rather than an instance. *It's better to look at it manually.*
 

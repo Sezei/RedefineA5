@@ -177,13 +177,12 @@ pagesData = {
 				for _, setting in missingSettings do
 					if type(curSettings[setting])=='boolean' then
 						local boolean = RawPage.Page:Boolean();
-						boolean:SetDescription(setting);
+						boolean:SetTitle(setting);
+						boolean:SetDescription("");
 						boolean:SetValue(curSettings[setting]); -- set to default value
 						boolean:SetCallback(function(val)
-							baseSettings[setting] = val;
+							baseSettings[setting] = boolean:GetValue();
 							settingChanged = true;
-							
-							TrueParent:SetAttribute('basesettings', Serializer.encode(baseSettings));
 						end);
 					elseif type(curSettings[setting])=='string' or type(curSettings[setting])=='number' then
 						local inputBox = RawPage.Page:InputBox();
@@ -191,10 +190,8 @@ pagesData = {
 						inputBox:SetValue(curSettings[setting])
 						inputBox:SetNumeral(type(curSettings[setting])=='number');
 						inputBox:SetCallback(function(val)
-							baseSettings[setting] = val;
+							baseSettings[setting] = inputBox:GetValue();
 							settingChanged = true;
-							
-							TrueParent:SetAttribute('basesettings', Serializer.encode(baseSettings));
 						end);
 					else
 						-- no support for other types yet!

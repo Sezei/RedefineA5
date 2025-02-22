@@ -176,6 +176,13 @@ Let's start this from the beginning;
 
 `OnRun` -> Runs this code when the player executes the command.
 
+> [!IMPORTANT]
+> OnClientLoad and OnClientRun use a different `env` table specific for the client.
+> Additionally, it requires the command to be a separate module, since the client is not able to see the functions on the server-side.
+
+`OnClientLoad` -> Runs the code in the client-side when the player loads.
+
+`OnClientRun` -> Runs this code in the client-side when the player executes the command.
 
 ## Creating the arguments
 References for this part;

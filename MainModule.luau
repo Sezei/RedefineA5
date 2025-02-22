@@ -174,7 +174,6 @@ if firstCall then
 		env.PersistStorage = env.Datastore(Settings.DatastoreKey..'_persist', env, {nocache=true;nosandbox=true});
 
 		local data = env.PersistStorage:Load('Settings'):wait().Data;
-		print(data)
 
 		if not data then
 			local saveTime = os.clock()

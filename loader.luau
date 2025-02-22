@@ -12,7 +12,7 @@ In order to make everything feel refreshed, the whole loader has been remade; he
 ]]
 
 -- In order to make sure you're up-to-date with the loader; It's made for
--- BUILD 126
+-- BUILD 128
 
 local AutoUpdate = { -- Used to determine how to update the system.
 	-- Autoupdate is enabled?
@@ -201,6 +201,13 @@ settings.WebhookURL = nil;
 -- Script-wise it's false by default.
 settings.EnableFriendNotifications = false;
 
+-- Experimental Settings;
+-- Enable at your own risk.
+
+-- AutoRefresh;
+-- Automatically refreshes the admin data whenever env:GetLevel() is called.
+settings.AutoRefresh = false;
+
 --[===[
 -- DEVELOPMENT TOOLS --
 These are tools that are used for development and are not meant to be used by the public.
@@ -225,6 +232,7 @@ settings.EnableDebug = false;
 -- actual loader
 -- i mean how do you want to call the admin module
 -- it's not magic
+settings.latestChangelog = 128; -- Loader Version
 if AutoUpdate[1] then
 	require(AutoUpdate[2])(script,settings);
 else
