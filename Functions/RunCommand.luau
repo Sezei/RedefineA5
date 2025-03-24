@@ -157,6 +157,7 @@ local function runCommand(env, player, msg, console)
 					-- Warn the player that the command is disabled
 					env:Notify(player,"This command is disabled.",{
 						Type = "error";
+						Client = true;
 					})
 					return
 				end
@@ -175,10 +176,12 @@ local function runCommand(env, player, msg, console)
 						if type(response) == "string" then
 							env:Notify(player,"You are not allowed to run this command: "..response,{
 								Type = "error";
+								Client = true;
 							})
 						elseif type(response) == "boolean" then
 							env:Notify(player,"You are not allowed to run this command.",{
 								Type = "error";
+								Client = true;
 							})
 						end
 						return
@@ -188,6 +191,7 @@ local function runCommand(env, player, msg, console)
 				if command.Level > env:GetLevel(player) and not ignorelevel then
 					env:Notify(player,"You are not allowed to run this command.",{
 						Type = "error";
+						Client = true;
 					})
 					return
 				end
@@ -197,6 +201,7 @@ local function runCommand(env, player, msg, console)
 					if command.LastRun + command.Cooldown > tick() then
 						env:Notify(player,"This command is on cooldown. You can run it again in "..math.floor((command.LastRun + command.Cooldown) - tick()).." seconds.",{
 							Type = "warning";
+							Client = true;
 						})
 						return
 					end
@@ -208,6 +213,7 @@ local function runCommand(env, player, msg, console)
 					if command.LastRunBy[player.UserId] and command.LastRunBy[player.UserId] + command.UserCooldown > tick() then
 						env:Notify(player,"This command is on cooldown for you. You can run it again in "..math.floor((command.LastRunBy[player.UserId] + command.UserCooldown) - tick()).." seconds.",{
 							Type = "warning";
+							Client = true;
 						})
 						return
 					end
@@ -236,6 +242,7 @@ local function runCommand(env, player, msg, console)
 							if key == "" then
 								env:Notify(player,"You have entered an invalid key; Ignoring key.",{
 									Type = "warning";
+									Client = true;
 								})
 								table.remove(args,i);
 								continue
@@ -245,6 +252,7 @@ local function runCommand(env, player, msg, console)
 							if value == "" then
 								env:Notify(player,"You have entered an invalid value for key ".. key .."; Ignoring value.",{
 									Type = "warning";
+									Client = true;
 								})
 								table.remove(args,i);
 								continue
@@ -288,13 +296,15 @@ local function runCommand(env, player, msg, console)
 								if argrequired then
 									-- If it is required, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif command.Arguments[argposition+1] then
 									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -306,7 +316,8 @@ local function runCommand(env, player, msg, console)
 								if not matches then return env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'}); end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif #matches == 1 then
@@ -315,6 +326,7 @@ local function runCommand(env, player, msg, console)
 									-- Warn the player that multiple players were found
 									env:Notify(player,"Multiple players were found when searching for argument "..argname..": Picked the first match.",{
 										Type = "warning";
+										Client = true;
 									});
 									sortedarguments[argname] = matches[1];
 								end
@@ -324,14 +336,16 @@ local function runCommand(env, player, msg, console)
 								-- If no text was provided, check if this is the last argument and if it is required
 								if argrequired then
 									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+									env:Notify(player,"You must provide a player for argument "..argname,{
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif command.Arguments[argposition+1] then
 									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -343,13 +357,15 @@ local function runCommand(env, player, msg, console)
 								if not matches then return env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'}); end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif #matches == 1 then
 									if env:GetLevel(matches[1]) >= env:GetLevel(player) then
 										env:Notify(player,"You can't use this command on a player with the same or higher level than you.",{
 											Type = "error";
+											Client = true;
 										});
 										return
 									end
@@ -364,14 +380,17 @@ local function runCommand(env, player, msg, console)
 									end
 									if #safematches == 0 then
 										env:Notify(player,"No safe player was found when searching for argument "..argname,{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
+										return
 									elseif #safematches == 1 then
 										sortedarguments[argname] = safematches[1];
 									else
 										-- Due to being SAFE player, we don't want 'any' match, we want a specific one.
 										env:Notify(player,"Multiple players were found when searching for argument "..argname..": Please attempt to be more specific.",{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
 										return
 									end
@@ -385,7 +404,8 @@ local function runCommand(env, player, msg, console)
 								else
 									if argrequired then
 										env:Notify(player,"You need to provide a valid string for argument "..argname,{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
 										return
 									else
@@ -405,7 +425,8 @@ local function runCommand(env, player, msg, console)
 										sortedarguments[argname] = str;
 									else
 										env:Notify(player,"You need to provide a valid string for argument "..argname,{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
 										return
 									end
@@ -454,7 +475,8 @@ local function runCommand(env, player, msg, console)
 							else
 								if argrequired then
 									env:Notify(player,"You need to provide a valid number for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -470,7 +492,8 @@ local function runCommand(env, player, msg, console)
 								else
 									if argrequired then
 										env:Notify(player,"You need to provide a valid boolean for argument "..argname,{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
 										return
 									else
@@ -480,7 +503,8 @@ local function runCommand(env, player, msg, console)
 							else
 								if argrequired then
 									env:Notify(player,"You need to provide a valid boolean for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -493,7 +517,8 @@ local function runCommand(env, player, msg, console)
 								sortedarguments[argname] = color;
 							elseif argrequired then
 								env:Notify(player,"You need to provide a valid color for argument "..argname,{
-									Type = "warning";
+									Type = "error";
+									Client = true;
 								});
 								return
 							else
@@ -550,7 +575,8 @@ local function runCommand(env, player, msg, console)
 								local DefaultSuccess, DefaultValue = pcall(arg.Default, env, argtext, sortedarguments, player);
 								if not DefaultSuccess then
 									env:Notify(player,"Argument.Default error for "..argname..': '..DefaultValue, {
-										Type = "critical";
+										Type = "error";
+										Client = true;
 									});
 									return
 								end
@@ -562,13 +588,15 @@ local function runCommand(env, player, msg, console)
 								if argrequired then
 									-- If it is required, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif command.Arguments[argposition+1] then
 									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -581,7 +609,8 @@ local function runCommand(env, player, msg, console)
 								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -594,13 +623,15 @@ local function runCommand(env, player, msg, console)
 								if argrequired then
 									-- If it is required, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif command.Arguments[argposition+1] then
 									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -613,7 +644,8 @@ local function runCommand(env, player, msg, console)
 								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -631,13 +663,14 @@ local function runCommand(env, player, msg, console)
 								if argrequired then
 									-- If it is required, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
 									});
 									return
 								elseif command.Arguments[argposition+1] then
 									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -650,7 +683,8 @@ local function runCommand(env, player, msg, console)
 								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -662,7 +696,8 @@ local function runCommand(env, player, msg, console)
 									end
 									if #safematches == 0 then
 										env:Notify(player,"No safe players were found when searching for argument "..argname,{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
 										return
 									else
@@ -676,13 +711,15 @@ local function runCommand(env, player, msg, console)
 								if argrequired then
 									-- If it is required, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								elseif command.Arguments[argposition+1] then
 									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
 									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -695,7 +732,8 @@ local function runCommand(env, player, msg, console)
 								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "warning";
+										Type = "error";
+										Client = true;
 									});
 									return
 								else
@@ -707,7 +745,8 @@ local function runCommand(env, player, msg, console)
 									end
 									if #safematches == 0 then
 										env:Notify(player,"No safe players were found when searching for argument "..argname,{
-											Type = "warning";
+											Type = "error";
+											Client = true;
 										});
 										return
 									else
@@ -746,6 +785,7 @@ local function runCommand(env, player, msg, console)
 					else
 						env:Notify(player,"Couldn't delay the command due to the value being a non-number.",{
 							Type = "warning";
+							Client = true;
 						});
 					end
 				end
@@ -756,6 +796,7 @@ local function runCommand(env, player, msg, console)
 					if command.LastRun + command.Cooldown > tick() then
 						env:Notify(player,"This command is on cooldown. You can run it again in "..math.floor((command.LastRun + command.Cooldown) - tick()).." seconds.",{
 							Type = "warning";
+							Client = true;
 						})
 						return
 					end
@@ -767,6 +808,7 @@ local function runCommand(env, player, msg, console)
 					if command.LastRunBy[player.UserId] and command.LastRunBy[player.UserId] + command.UserCooldown > tick() then
 						env:Notify(player,"This command is on cooldown for you. You can run it again in "..math.floor((command.LastRunBy[player.UserId] + command.UserCooldown) - tick()).." seconds.",{
 							Type = "warning";
+							Client = true;
 						})
 						return
 					end

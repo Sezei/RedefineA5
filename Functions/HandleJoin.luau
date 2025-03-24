@@ -1,4 +1,3 @@
-local http = game:GetService('HttpService') -- post import sezei: oops, forgot to remove this line 👀
 local Handled = {};
 
 return function (env, player)

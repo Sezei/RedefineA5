@@ -61,6 +61,29 @@ local function CreateMeta(env:any, plr:Player?)
 		if not player.InGame then return end;
 		senv.RemoteEvent:FireClient(player.self,"Notify",text, data);
 	end
+	
+	do (function() 
+			if not senv.VCSDK then return end;
+			local VCSDK = senv.VCSDK;
+			
+			function player:Mute(Duration)
+				if not VCSDK.PlayerHasVoice(player.self) then return end;
+
+				VCSDK.MutePlayer(player.self, Duration);
+			end
+			
+			function player:Unmute()
+				if not VCSDK.PlayerHasVoice(player.self) then return end;
+				
+				VCSDK.UnmutePlayer(player.self);
+			end
+			
+			function player:SetVolume(NewVolume)
+				if not VCSDK.PlayerHasVoice(player.self) then return end;
+				
+				VCSDK.SetPlayerVolume(player.self, NewVolume);
+			end
+	end)() end
 
 	table.insert(plrs,player);
 

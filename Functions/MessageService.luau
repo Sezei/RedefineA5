@@ -77,11 +77,13 @@ function module:Wait()
 end
 
 MessagingService:SubscribeAsync('RedefineA5', function(message)
-	local topic = message.Topic;
-	local data = message.Data;
+	local payload = message.Data
+	local topic = payload.Topic
+	local data = payload.Data
 	if Listeners[topic] then
-		Listeners[topic](data);
-	end;
+		Listeners[topic](data)
+	end
 end);
+
 
 return module;

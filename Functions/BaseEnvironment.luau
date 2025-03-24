@@ -5,7 +5,7 @@ local OwnerId;
 local env = {
 	-- Version info
 	NxEngine = {
-		BuildId = 127;
+		BuildId = 129;
 	};
 
 	-- In-game Data
@@ -28,10 +28,14 @@ local env = {
 	MainModule = script.Parent.Parent;
 }
 
-function env.Search(targetArray, query)
+function env.Search(targetArray: {any}, query: any, lower: boolean?)
 	for k,v in pairs(targetArray) do -- ignore key: we need the value itself
-		if tostring(v) == tostring(query) then
-			return k;
+		if lower and typeof(v) == 'string' then
+			if string.lower(v) == string.lower(query) then
+				return k
+			end
+		elseif tostring(v) == tostring(query) then
+			return k
 		end
 	end
 end

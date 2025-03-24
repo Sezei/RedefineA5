@@ -10,13 +10,13 @@ return function(env, player)
 		if env.IsOwner(player) then
 			return env.HighestLevel, true, true;
 		end
-		
+
 		-- Attempt to fetch the player data.
 		if env.Data.Settings.AutoRefresh then
 			env.Data.Ingame.Admins = env.Data.Settings.Admins;
 		end;
 		local Admins = env.Data.Ingame.Admins;
-		
+
 		if not Admins then
 			warn(`Redefine:A | An error has occurred attempting to get player level for ${player.DisplayName}! - No admins table was loaded.`);
 			table.insert(env.Data.Logs.Errors, {os.time(),`Failed to catch {player.UserId}'s admin level - No admins table.`})
@@ -77,6 +77,35 @@ return function(env, player)
 							updateCandidate(level, not value.MarkAsTemporary, data.Admin or false);
 						end;
 					end;
+
+					if env.Search(value, "and", true) then
+						local conditionsMet = true;
+
+						if value.VIPOwner then
+							if not (game.PrivateServerOwnerId == userId) then
+								conditionsMet = false;
+							end;
+						end;
+						if value.Premium then
+							if player.MembershipType ~= Enum.MembershipType.Premium then
+								conditionsMet = false;
+							end;
+						end;
+						if value.GamepassId then
+							if not Market.UserOwnsGamePassAsync(userId, value.GamepassId) then
+								conditionsMet = false;
+							end;
+						end;
+						if value.BadgeId then
+							if not BadgeService.UserHasBadgeAsync(userId, value.BadgeId) then
+								conditionsMet = false;
+							end;
+						end;
+
+						if conditionsMet then
+							updateCandidate(level, not value.MarkAsTemporary, data.Admin or false);
+						end;
+					end
 				end;
 				-- Process special keys.
 				if key == "VIPOwner" then
@@ -101,7 +130,7 @@ return function(env, player)
 			if env.IsOwner(player) then
 				return {env.HighestLevel, true, true};
 			end
-			
+
 			if typeof(player) == "string" then
 				player = game.Players:GetUserIdFromNameAsync(player);
 			end;

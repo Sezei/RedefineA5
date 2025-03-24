@@ -65,15 +65,39 @@ return function(env, player, text, data)
 
 	-- Format the text using PlaceholderAPI (env.format);
 	text = env.format(text, {}, player)
+	
+	-- Check if it should be client-sided.
+	-- This "might" break stuff.
+	local Clientsided = false;
+	
+	if next(data) == nil then
+		Clientsided = true;
+	else
+		if data.Client then
+			Clientsided = true;
+		end;
+		
+		if data.Callback then
+			Clientsided = false;
+		end;
+	end;
+	
 
 	-- Check if the provided player is a player instance.
 	if player and typeof(player) == "Instance" and player:IsA("Player") then
 		-- Check if the player is in the game.
 		if player.Parent == game.Players then
-			-- Create a notification instance
+			-- Fully clientsided, nothing else needed.
+			if Clientsided then
+				env.RemoteEvent:FireClient(player, "Notify", text, data);
+				return;
+			end;
+			
+			-- Otherwise, create a notification instance
 			local notification = {};
 
 			local UID;
+			
 			local success, fail = pcall(function()
 				UID = env.RemoteFunction:InvokeClient(player, "Notify", text, data);
 			end)
