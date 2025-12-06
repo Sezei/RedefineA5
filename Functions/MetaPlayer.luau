@@ -20,8 +20,18 @@ local function CreateMeta(env:any, plr:Player?)
 	player.UserId = plr.UserId;
 	player.AccountAge = plr.AccountAge;
 	player.InGame = true;
-	player.Gagged = false;
+	player.Gagged = senv.Data.Ingame.Gagged[plr.UserId] and true or false;
 	player.Muted = false;
+
+	local function setGagState(gagged:boolean)
+		player.Gagged = gagged;
+		if gagged then
+			senv.Data.Ingame.Gagged[plr.UserId] = true;
+		else
+			senv.Data.Ingame.Gagged[plr.UserId] = nil;
+		end
+		senv.RemoteEvent:FireAllClients("GagState", plr.UserId, gagged);
+	end
 
 	-- Set the player's Local PlayerId attribute
 	plr:SetAttribute("ra_LocalId",player.LocalId);
@@ -60,6 +70,19 @@ local function CreateMeta(env:any, plr:Player?)
 	function player:Notify(text, data)
 		if not player.InGame then return end;
 		senv.RemoteEvent:FireClient(player.self,"Notify",text, data);
+	end
+
+	function player:Gag(reason:string?)
+		if not player.InGame then return end;
+		setGagState(true);
+		if reason then
+			table.insert(senv.Data.Logs.System, {os.time(), "MetaPlayer", `Gagged {player.Name}: {reason}`});
+		end
+	end
+
+	function player:Ungag()
+		if not player.InGame then return end;
+		setGagState(false);
 	end
 	
 	do (function() 
@@ -102,6 +125,11 @@ game:GetService("Players").PlayerAdded:Connect(function(plr)
 	if plrs[plr.UserId] then
 		plrs[plr.UserId].InGame = true;
 		plrs[plr.UserId].self = plr; -- Player reconnected! Undo the nil
+
+		if senv.Data.Ingame.Gagged[plr.UserId] then
+			plrs[plr.UserId].Gagged = true;
+			senv.RemoteEvent:FireAllClients("GagState", plr.UserId, true);
+		end
 
 		if plrs[plr.UserId].Muted then
 			-- Notify all of the admins that the player has reconnected and is still muted

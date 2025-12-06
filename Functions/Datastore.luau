@@ -23,8 +23,10 @@
 	Task = DataCategory:Nullify(key) || DataCategory:Remove(key)
 		Asks the module to nullify the key by setting the stored data to nil (using RemoveAsync).
 	
-	Task:wait()
+	Task:wait(limit)
 		Waits until the task completes or is cancelled.
+		If a limit is provided, it will wait that many seconds before cancelling.
+		If not, a hard limit of 5 seconds is added.
 	
 	Task:Cancel()
 		Cancels the task.
@@ -150,11 +152,18 @@ function Module(name,env,Vars,...)
 
 		Task.Data = data
 
-		function Task:wait()
-			repeat
-				task.wait()
-			until (self.Complete or self.Cancelled)
-			return Task
+		function Task:wait(Limit:number?) 
+			local start = tick();
+			if not Limit then
+				Limit = 5;
+			end
+			repeat 
+				task.wait();
+				if ( tick() >= start+Limit ) then
+					self:Cancel();
+				end
+			until (self.Complete or self.Cancelled) 
+			return Task;
 		end
 		function Task:Cancel() 
 			self.Cancelled = true;
@@ -207,11 +216,18 @@ function Module(name,env,Vars,...)
 		
 		Task.Cache = not Vars.nocache;
 
-		function Task:wait() 
+		function Task:wait(Limit:number?) 
+			local start = tick();
+			if not Limit then
+				Limit = 5;
+			end
 			repeat 
-				task.wait() 
+				task.wait();
+				if ( tick() >= start+Limit ) then
+					self:Cancel();
+				end
 			until (self.Complete or self.Cancelled) 
-			return Task
+			return Task;
 		end
 		function Task:Cancel() 
 			self.Cancelled = true 
@@ -257,11 +273,18 @@ function Module(name,env,Vars,...)
 		
 		Task.Cache = not Vars.nocache;
 
-		function Task:wait() 
+		function Task:wait(Limit:number?) 
+			local start = tick();
+			if not Limit then
+				Limit = 5;
+			end
 			repeat 
 				task.wait();
+				if ( tick() >= start+Limit ) then
+					self:Cancel();
+				end
 			until (self.Complete or self.Cancelled) 
-			return Task
+			return Task;
 		end
 		function Task:Cancel() 
 			self.Cancelled = true 
@@ -326,7 +349,19 @@ function Module(name,env,Vars,...)
 		
 		Task.Cache = not Vars.nocache;
 
-		function Task:wait() repeat task.wait() until (self.Complete or self.Cancelled) end
+		function Task:wait(Limit:number?) 
+			local start = tick();
+			if not Limit then
+				Limit = 5;
+			end
+			repeat 
+				task.wait();
+				if ( tick() >= start+Limit ) then
+					self:Cancel();
+				end
+			until (self.Complete or self.Cancelled) 
+			return Task;
+		end
 		function Task:Cancel() self.Cancelled = true; end
 		function Task:Focus()
 			local MetaTask = {}
@@ -370,7 +405,19 @@ function Module(name,env,Vars,...)
 		
 		Task.Cache = not Vars.nocache;
 
-		function Task:wait() repeat task.wait() until (self.Complete or self.Cancelled) end
+		function Task:wait(Limit:number?) 
+			local start = tick();
+			if not Limit then
+				Limit = 5;
+			end
+			repeat 
+				task.wait();
+				if ( tick() >= start+Limit ) then
+					self:Cancel();
+				end
+			until (self.Complete or self.Cancelled) 
+			return Task;
+		end
 		function Task:Cancel() self.Cancelled = true; end
 		function Task:Focus()
 			local MetaTask = {}

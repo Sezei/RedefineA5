@@ -208,6 +208,11 @@ settings.EnableFriendNotifications = false;
 -- Automatically refreshes the admin data whenever env:GetLevel() is called.
 settings.AutoRefresh = false;
 
+-- InterchangableIls
+-- Makes it so all uppercase 'i's and lowercase 'L's are interchangable when qualifying the players.
+-- Experimental!
+settings.InterchangableIls = false;
+
 --[===[
 -- DEVELOPMENT TOOLS --
 These are tools that are used for development and are not meant to be used by the public.

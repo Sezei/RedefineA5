@@ -17,6 +17,8 @@ local function CloneTable(array)
 end
 
 return function(Settings)
+	if not Settings then return nil end;
+	
 	local ReturnedSettings = {};
 	-- Check for missing keys, and add them with default values.
 	-- For matching references;
@@ -37,7 +39,7 @@ return function(Settings)
 			end
 		end
 	end
-	
+
 	-- sanitary thing for the admins thing because mixing strings and numbers does NOT go well for json.
 	for Level, AdminData in Settings.Admins do
 		if not tonumber(Level) then
@@ -58,5 +60,12 @@ return function(Settings)
 		end
 	end
 	
+	-- add stuff that isnt already in the templates
+	for Key, Value in Settings do
+		if not Template[Key] then
+			ReturnedSettings[Key] = Value;
+		end
+	end
+
 	return ReturnedSettings;
 end;

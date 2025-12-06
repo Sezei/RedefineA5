@@ -27,53 +27,79 @@ local function FindPlayers(env, Names, Executor) : {Player} -- Function that fin
 	local matches:{Player} = {} -- Table that will contain all the matches.
 	-- Loop through all the players.
 	for _,Name in names do
-		for _,v in next,game:GetService("Players"):GetPlayers() do
-			local matched = false; -- If a player has been matched, this will be set to true so they won't be matched again and again.
+		do
+			local Name = Name; -- localise the name variable into the do-end block so it won't affect the qualifiers
+			if env.Data.Settings.InterchangableIls then
+				Name = string.gsub(Name,'I','l');
+			end
+			
+			for _,v in game:GetService("Players"):GetPlayers() do
+				local supposedName = v.Name;
+				local supposedDName = v.DisplayName;
+				local matched = false; -- If a player has been matched, this will be set to true so they won't be matched again and again.
 
-			-- Check if the executor started the Name with #; This will use the players' Local PlayerId (#1 = First Join, #2 = Second join, etc.)
-			-- The players have a 'ra_LocalId' attribute that is set when they join the game.
-			if Name:sub(1,1) == "#" then
-				local LocalId = v:GetAttribute("ra_LocalId");
-				if LocalId then
-					if tonumber(Name:sub(2)) == LocalId then
+				if env.Data.Settings.InterchangableIls then
+					-- Change all uppercase Is to lowercase Ls
+					supposedName = string.gsub(supposedName, 'I', 'l');
+					supposedDName = string.gsub(supposedDName, 'I', 'l');
+				end
+
+				-- Check if the executor started the Name with #; This will use the players' Local PlayerId (#1 = First Join, #2 = Second join, etc.)
+				-- The players have a 'ra_LocalId' attribute that is set when they join the game.
+				if Name:sub(1,1) == "#" then
+					local LocalId = v:GetAttribute("ra_LocalId");
+					if LocalId then
+						if tonumber(Name:sub(2)) == LocalId then
+							matches[#matches+1] = v
+							matched = true;
+						end
+					end
+				end
+				
+				if Name:sub(1,4) == "uid:" then
+					-- userid mentioned? 👀
+					if tonumber(Name:sub(5)) == v.UserId then
 						matches[#matches+1] = v
 						matched = true;
 					end
 				end
-			end
 
-			-- Because of the '@'; prioritise checking the username first before the displayname; Alongside that, it will also not check for the displayname.
-			local s1 = string.lower("@"..v.Name)
-			if s1:sub(1, #Name) == string.lower(Name) then
-				if not matched then
-					matches[#matches+1] = v
+				-- Because of the '@'; prioritise checking the username first before the displayname; Alongside that, it will also not check for the displayname.
+				local s1 = string.lower("@"..v.Name)
+				if s1:sub(1, #Name) == string.lower(Name) then
+					if not matched then
+						matches[#matches+1] = v
+					end
 				end
-			end
 
-			-- Check for the displayname.
-			local s1 = string.lower(v.DisplayName)
-			if s1:sub(1, #Name) == string.lower(Name) then
-				if not matched then
-					matches[#matches+1] = v
+				-- Check for the displayname.
+				local s1 = string.lower(v.DisplayName)
+				if s1:sub(1, #Name) == string.lower(Name) then
+					if not matched then
+						matches[#matches+1] = v
+					end
 				end
-			end
 
-			-- Check for the username.
-			local s1 = string.lower(v.Name)
-			if s1:sub(1, #Name) == string.lower(Name) then
-				if not matched then
-					matches[#matches+1] = v
+				-- Check for the username.
+				local s1 = string.lower(v.Name)
+				if s1:sub(1, #Name) == string.lower(Name) then
+					if not matched then
+						matches[#matches+1] = v
+					end
 				end
 			end
 		end
 
 		-- Check the sortedqualifiers table for any matches; If there are any, handle them and add them to the matches table.
-		for method, qualifier in pairs(sortedqualifiers) do
-			if string.lower(Name) == string.lower(method) then
-				local Players = game:GetService("Players"):GetPlayers();
-				local MatchedPlayers = qualifier.identifier(env, Players, Executor);
-				for _, Player in pairs(MatchedPlayers) do
-					table.insert(matches, Player);
+		-- Only do it if there are no other matches too
+		if not matches[1] then
+			for method, qualifier in (sortedqualifiers) do
+				if string.lower(Name) == string.lower(method) then
+					local Players = game:GetService("Players"):GetPlayers();
+					local MatchedPlayers = qualifier.identifier(env, Players, Executor);
+					for _, Player in (MatchedPlayers) do
+						table.insert(matches, Player);
+					end;
 				end;
 			end;
 		end;
@@ -104,12 +130,12 @@ type Qualifier = {
 	identifier:any;
 };
 
-type CommandData = {
+type CommandData = { --todo
 
 };
 
-export type Command = {
-
+export type Command = --todo
+{
 	Disabled:boolean?;
 };
 
@@ -334,16 +360,9 @@ local function runCommand(env, player, msg, console)
 						elseif argtype == "safeplayer" then -- If the argument type is safeplayer, then we need to find a player whose level is below the executor and return the argument as the player instance for the command to use.
 							if not argtext then
 								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired then
+								if argrequired or command.Arguments[argposition+1] then
 									-- If it is required, then warn the player that they need to provide a player
 									env:Notify(player,"You must provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif command.Arguments[argposition+1] then
-									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
 										Type = "error";
 										Client = true;
 									});
@@ -524,6 +543,12 @@ local function runCommand(env, player, msg, console)
 							else
 								sortedarguments[argname] = argdefault;
 							end
+						elseif argtype == 'time' then --TODO: allow use of '1d', '1min', '1mo' etc
+							env:Notify(player,"Command failed: Incompatible version?",{
+								Type = "critical";
+								Client = true;
+							});
+							return warn('Something is using an argument type that isn\'t compatible with this version.')
 						elseif argtype == 'custom' then -- rawinput but worse (help)
 							--[[
 							{
@@ -680,7 +705,7 @@ local function runCommand(env, player, msg, console)
 							else
 								-- Text was provided; Check if it matches players.
 								local matches = FindPlayers(env,argtext,player);
-								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
+								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel.",{Type='critical'});return end;
 								if #matches == 0 then
 									env:Notify(player,"No player was found when searching for argument "..argname,{
 										Type = "error";
@@ -690,7 +715,7 @@ local function runCommand(env, player, msg, console)
 								else
 									local safematches = {};
 									for _,match in matches do
-										if env:GetLevel(match) >= env:GetLevel(player) then
+										if env:GetLevel(match) < env:GetLevel(player) then
 											table.insert(safematches,match);
 										end
 									end

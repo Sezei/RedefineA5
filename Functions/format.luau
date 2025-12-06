@@ -2,7 +2,7 @@ local mod = {}
 
 local function stringfind(str,find) -- An unoptimised function to find a specific set of characters because string.find can't find some characters.
 	local Spaced = str:split(" ");
-	for i,v in pairs(Spaced) do
+	for i,v in Spaced do
 		if v == find then
 			return i;
 		end
@@ -26,7 +26,7 @@ function mod:_NxWrapper() -- This is the function we use for env.format; _NxWrap
 		nx_onlineadmins = function(env,_)
 			-- Get the amount of admins online
 			local admins = 0;
-			for _,v in pairs(game.Players:GetPlayers()) do
+			for _,v in game.Players:GetPlayers() do
 				if env.Data.Ingame.Admins[v.UserId] then
 					admins = admins + 1;
 				end
@@ -134,7 +134,7 @@ function mod:_NxWrapper() -- This is the function we use for env.format; _NxWrap
 		end;
 
 		-- Static placeholders
-		papi_version = "1.0.4a";
+		papi_version = "1.0.4b";
 		papi_engine = "NxEngine2";
 		papi_engineversion = self.NxEngine.BuildId;
 		nx_version = self.NxEngine.BuildId;
@@ -143,13 +143,13 @@ function mod:_NxWrapper() -- This is the function we use for env.format; _NxWrap
 	return function(originscript,replacementdata,player)
 		local s:string = tostring(originscript);
 
-		for old,new in pairs(replacementdata) do -- First replace the needed stuff.
+		for old,new in replacementdata do -- First replace the needed stuff.
 			s = s:gsub("{"..old.."}",tostring(new)):gsub("<"..old..">",tostring(new));
 		end
 		
 
 		-- Attempt to find placeholders; They are marked with %placeholder%
-		for placeholder,value in pairs(self.Placeholders) do
+		for placeholder,value in self.Placeholders do
 			if s:find("{"..placeholder.."}") then
 				if type(value) == "function" then
 					s = s:gsub("{"..placeholder.."}",tostring(value(self,player))):gsub("<"..placeholder..">",tostring(value(self,player))); -- self being the environment

@@ -1,8 +1,9 @@
+--debug.profilebegin("RedefineA5");
 -- Variables
 local firstCall = true; -- Track if this is the first time the module is being called upon
 local betabuild = false; -- Track if this is a beta build; Detected if the module contains a localscript named 'THIS IS A BETA BUILD'
 local loadtime = os.clock(); -- Tracks the time it took to load the system
-local loads = 3; -- 3 initial loads (errorcodes, baseenv, and signal)
+local loads = 5;
 
 -- Pre-Defined modules
 local env = require(script.MainFunctions.BaseEnvironment); -- Load the base environment
@@ -10,6 +11,7 @@ local errorcodes = require(script.SharedFunctions.ErrorCodes); -- Load the error
 local serializer = require(script.SharedFunctions.Serializer); -- Custom serializer
 
 -- Dependencies
+basePlugin = require(script.Dependencies.BasePlugin); -- Load the base plugin for inheritence
 env.SignalHandler = require(script.Dependencies.Signal);
 
 -- Add for command dependency check (dependencies = {"InStudio"})
@@ -36,18 +38,20 @@ env.Signals.CommandProcessed = env.SignalHandler.new({Name = "Processed"; Deprec
 -- Hooks; Can determine the output
 env.Hooks = {
 	Command = {};
+	Level = {};
 };
 
 env.Hooks.Command.PreProcess = {}; -- Runs if the engine thinks this is a command (message begins with the prefix) -> Environment, Executor:Player, Command:string, Arguments:table{string}, Console:boolean
 env.Hooks.Command.PostProcess = {}; -- Runs after the command arguments are parsed -> Environment, Executor:Player, Command:CommandData, Arguments:table{parsed arguments}, Console:boolean
 env.Hooks.Command.Ran = {}; -- Supersedes Signals.Processed; Runs after the command has been ran -> Environment, Executor:Player, RunContext:table{CommandData, Arguments, Keys, etc.}
+env.Hooks.Level.Get = {}; -- Ran after potentially getting a player level -> Environment, Player, EstimatedLevel
 
 env.Serializer = serializer;
 
 local PostInit = {};
 
 -- Check to see if this is a betabuild
-if script:FindFirstChild("THIS IS A BETA BUILD!") then
+if script:FindFirstChild("THIS IS A BETA BUILD!") or env.InStudio then
 	betabuild = true;
 end;
 
@@ -71,9 +75,11 @@ env.RemoteFunction.Name = "NxRemoteFunction";
 env.RemoteFunction.Parent = game.ReplicatedStorage;
 
 -- Load the main functions
+--debug.profilebegin("RA5_CoreFunctionsLoad");
 for _,v in script.MainFunctions:GetChildren() do
+	--debug.profilebegin("RA5_CoreFunction_"..v.Name);
 	if v:IsA("ModuleScript") and v.Name ~= "BaseEnvironment" and v.Name ~= "ErrorCodes" then
-		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
+		table.insert(env.Data.Logs.System, {os.time(), nil, "[CORE FUNCTION] Module Compilation; "..v.Name});
 		if betabuild then loads+=1 end
 		local success,mod = pcall(function() return require(v) end)
 		if success then
@@ -89,12 +95,16 @@ for _,v in script.MainFunctions:GetChildren() do
 			table.insert(env.Data.Logs.Errors,{os.time(),"Module Compilation Failed: "..v.Name..' with error "'..mod..'"'});
 		end
 	end;
+	--debug.profileend();
 end
+--debug.profileend();
 
 -- Load the main commands
+--debug.profilebegin("RA5_CoreCommandsLoad");
 for _,v in script.MainCommands:GetChildren() do
+	--debug.profilebegin("RA5_CoreFunction_"..v.Name);
 	if v:IsA("ModuleScript") then
-		table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
+		table.insert(env.Data.Logs.System, {os.time(), nil, "[CORE COMMANDS] Module Compilation; "..v.Name});
 		if betabuild then loads+=1 end
 		local success,mod = pcall(function() return require(v) end)
 		if success then
@@ -105,9 +115,12 @@ for _,v in script.MainCommands:GetChildren() do
 			table.insert(env.Data.Logs.Errors,{os.time(),"Command Compilation Failed: "..v.Name..' with error "'..mod..'"'});
 		end
 	end
+	--debug.profileend();
 end
+--debug.profileend();
 
 env.RemoteFunction.OnServerInvoke = function(player, key, args)
+	--debug.profilebegin("RA5_RemoteFunctionCall");
 	if key == "GetCommands" then
 		local Commands = {};
 
@@ -129,12 +142,16 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 	elseif key == "GetLevel" then
 		return env:GetLevel(game:GetService("Players"):GetPlayerByUserId(args));
 	end
+	--debug.profileend();
 end
 
 env.RedefineAUI = env.MainModule.RedefineAUI;
 
+--debug.profileend();
+
 if firstCall then
 	return function(Loader:Script,Settings:{[string]:any?})
+		--debug.profilebegin("RA5_InitialLoad");
 		if firstCall==false then return end;
 		firstCall = false
 		table.insert(env.Data.Logs.System, {os.time(), nil, "Handling load."});
@@ -217,7 +234,7 @@ if firstCall then
 			if Loader:FindFirstChild("Functions") then
 				for _,v in Loader.Functions:GetChildren() do
 					if v:IsA("ModuleScript") then
-						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
+						table.insert(env.Data.Logs.System, {os.time(), nil, "[USER FUNCTION] Module Compilation; "..v.Name});
 						if betabuild then loads+=1 end
 						local success,mod = pcall(function() return require(v) end)
 						if success then
@@ -239,7 +256,7 @@ if firstCall then
 			-- Load the MAIN shared functions
 			for _,v in script.SharedFunctions:GetChildren() do
 				if v:IsA("ModuleScript") then
-					table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
+					table.insert(env.Data.Logs.System, {os.time(), nil, "[CORE SHARED FUNCTIONS] Module Compilation; "..v.Name});
 					v:Clone().Parent = env.RedefineAUI.Main;
 
 					if betabuild then loads+=1 end
@@ -315,7 +332,7 @@ if firstCall then
 				
 				for _,v in Loader.Commands:GetChildren() do
 					if v:IsA("ModuleScript") then
-						table.insert(env.Data.Logs.System, {os.time(), nil, "Module Compilation; "..v.Name});
+						table.insert(env.Data.Logs.System, {os.time(), nil, "[USER FUNCTIONS] Module Compilation; "..v.Name});
 						if betabuild then loads+=1 end
 						local success,mod = pcall(function() return require(v) end)
 						if success then
@@ -374,6 +391,26 @@ if firstCall then
 					end
 				end
 			end
+			
+			if Loader:FindFirstChild("Plugins") then
+				for _,v in Loader.Plugins:GetChildren() do
+					if v:IsA("ModuleScript") then
+						table.insert(env.Data.Logs.System, {os.time(), nil, "[USER PLUGIN] Module Compilation; "..v.Name});
+						if betabuild then loads+=1 end
+						local success,mod = pcall(function() return require(v) end)
+						if success then
+							local pluginTable = {}
+							for k,v in basePlugin do pluginTable[k] = v end
+							for k,v in mod do pluginTable[k] = v end
+							env.Plugins[v.Name] = pluginTable;
+							pluginTable:Setup(env)
+						else
+							warn('Redefine:A | Failed to compile plugin: '..v.Name..' with error "'..mod..'"');
+							table.insert(env.Data.Logs.Errors,{os.time(),"Plugin Compilation Failed: "..v.Name..' with error "'..mod..'"'});
+						end
+					end
+				end
+			end
 
 			if Settings.UnsafeLoading then
 				print("Redefine:A | Finished UnsafeLoad; Total loads: "..loads.."; Total time; "..(os.clock()-loadtime).." seconds.")
@@ -386,7 +423,11 @@ if firstCall then
 			warn("Redefine:A | Loaded "..loads.." modules so far using UnsafeLoading; Took "..(os.clock()-loadtime).." seconds!")
 		else
 			LoadModules();
-			print("Redefine:A | Loaded "..loads.." modules in total; Took "..(os.clock()-loadtime).." seconds!");
+			if betabuild then
+				print("Redefine:A | Loaded "..loads.." modules in total; Took "..(os.clock()-loadtime).." seconds!");
+			else
+				print("Redefine:A | Loaded! Took "..(os.clock()-loadtime).." seconds.");
+			end
 		end
 
 		-- PostInit modules
@@ -406,6 +447,7 @@ if firstCall then
 		env.GlobalBanlist = {};
 
 		task.spawn(function()
+			--debug.profilebegin("RA5_UpdateBanlist");
 			table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
 
 			local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
@@ -414,8 +456,10 @@ if firstCall then
 			else
 				warn("Failed to update the global banlist! Is HTTPService enabled?");
 			end
+			--debug.profileend();
 
 			while task.wait(30) do
+				--debug.profilebegin("RA5_UpdateBanlist");
 				-- Check the banlist again to see if any bans have updated.
 				table.insert(env.Data.Logs.System, {os.time(), nil, "Updating banlist"});
 				local suc,dat = pcall(env.CloudAPI.Get,"/redefinea/banlist");
@@ -424,16 +468,33 @@ if firstCall then
 				else
 					warn("Failed to update the global banlist!");
 				end
+				--debug.profileend();
 			end
 		end)
 
 		game.Players.PlayerAdded:Connect(function(player) -- Add a join event
+			--debug.profilebegin("RA5_HandlePlayer");
 			table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId});
-			env:HandleJoin(player);
+			local attempt = env:HandleJoin(player);
+			if not attempt then
+				-- try again
+				table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId.." failed: trying again."});
+				
+				env:HandleJoin(player);
+			end;
+			--debug.profileend();
 		end);
 		for _,player in game.Players:GetPlayers() do -- Check for already existing players
+			--debug.profilebegin("RA5_HandleExistingPlayers");
 			table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId});
-			env:HandleJoin(player);
+			local attempt = env:HandleJoin(player);
+			if not attempt then
+				-- try again
+				table.insert(env.Data.Logs.System, {os.time(), nil, "Handling "..player.UserId.." failed: trying again."});
+
+				env:HandleJoin(player);
+			end;
+			--debug.profileend();
 		end
 
 		-- Add a few select functions to the shared environment (shared.RedefineA)
@@ -448,8 +509,10 @@ if firstCall then
 			Signals = env.Signals; -- Add the signals; This might be a risky move due to the fact that it returns an unprotected table.
 		};
 
+		--debug.profileend();
 		-- return env; -- Return the environment after the loading is done; Not recommended for the vanilla build but do whatever if you're forking this. It's your game/system.
 	end
 else
 	return shared.RedefineA;
 end
+

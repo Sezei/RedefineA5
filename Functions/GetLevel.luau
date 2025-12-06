@@ -31,11 +31,30 @@ return function(env, player)
 			if not bestLevel then
 				bestLevel = Level; bestBase = Base; bestIsAdmin = IsAdmin;
 			else
+				--[[
 				if Base and not bestBase then
 					bestLevel = Level; bestBase = Base; bestIsAdmin = IsAdmin;
 				elseif Base == bestBase and Level > bestLevel then
 					bestLevel = Level; bestBase = Base; bestIsAdmin = IsAdmin;
-				end;
+				end;]]
+				if Base then
+					if not bestBase then
+						bestLevel = Level;
+						bestIsAdmin = IsAdmin;
+					else
+						if Level > bestLevel then
+							bestLevel = Level;
+							bestIsAdmin = IsAdmin;
+						end
+					end
+					bestBase = true;
+				else
+					if bestBase then return end;
+					if Level > bestLevel then
+						bestLevel = Level;
+						bestIsAdmin = IsAdmin;
+					end
+				end
 			end;
 		end;
 		-- Process each admin rank.
@@ -123,6 +142,36 @@ return function(env, player)
 				end;
 			end;
 		end;
+		
+		for _,v in env.Hooks.Level.Get do
+			local success, response = pcall(function() return v(env, player, bestLevel or 0) end);
+--																	             ^ expected level
+			if not success then warn('Redefine:A | Level.Get Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: Level.Get: with error; {response}`}); continue end;
+			if type(response)=='nil' then continue end;
+
+			if type(response) == "table" then
+				if not response.Level then continue end;
+				if Admins[tostring(response.Level)] or Admins[response.Level] then
+					bestLevel = tonumber(response.Level);
+					bestBase = response.Base or bestBase;
+					bestIsAdmin = response.Admin or bestIsAdmin;
+				else
+					warn('Redefine:A | Level.Get Hook failed: Invalid Admin Level '.. response.Level);
+					table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: Level.Get: Invalid Admin Level {response.Level}`}); continue
+				end
+			elseif type(response) == "number" then
+				if Admins[tostring(response)] or Admins[response] then
+					bestLevel = response
+				else
+					warn('Redefine:A | Level.Get Hook failed: Invalid Admin Level '.. response.Level);
+					table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: Level.Get: Invalid Admin Level {response.Level}`}); continue
+				end
+			else
+				warn('Redefine:A | Level.Get Hook failed: Invalid Response Type');
+				table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: Level.Get: Invalid Response Type`}); continue
+			end
+		end;
+		
 		return bestLevel or 0, bestBase or false, bestIsAdmin or false;
 		-- Offline branch: player is a string (username) or number (UserId).
 	elseif player and (typeof(player) == "string" or typeof(player) == "number") then

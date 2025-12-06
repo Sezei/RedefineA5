@@ -134,7 +134,7 @@ end
 function mod:_NxWrapper_PostInit()
 	env = self;
 	local DiscordModule = env.DiscordEmbedder;
-	Datastore = env.Storage -- we need to allow this stuff to work in vip servers too so we disable the sandboxing
+	--[[Datastore = env.Storage -- we need to allow this stuff to work in vip servers too so we disable the sandboxing
 	Casestore = env.Datastore("BetterBans_v1_Cases",env,{nocache=true;nosandbox=true});
 	--TagStore = env.Datastore("TagService",env,{nocache=true,nosandbox=true});
 
@@ -170,7 +170,7 @@ function mod:_NxWrapper_PostInit()
 		else
 			return 'Active';
 		end
-	end;
+	end;--]]
 
 	-- Better bans
 	env:RegisterCommand(
@@ -196,7 +196,14 @@ function mod:_NxWrapper_PostInit()
 			};
 
 			OnRun = function(env, Executor, Arguments:{Reason:string;Player:Player}, Keys)
-				local Load = Datastore:Load('BanProfile_'..tostring(Arguments.Player.UserId)):wait();
+				if env:GetLevel(Arguments.Player) >= env:GetLevel(Executor) then
+					return {
+						Success = false;
+						Message = 'You can\'t ban someone whose level is equal or higher than yours.';
+					}
+				end
+				
+				--[[local Load = Datastore:Load('BanProfile_'..tostring(Arguments.Player.UserId)):wait();
 				local LoadData = Load.Data :: BanData?;
 
 				if LoadData and LoadData.History then
@@ -237,9 +244,9 @@ function mod:_NxWrapper_PostInit()
 						-- welp, that sucked.
 						Task:cancel();
 					end
-				end)
+				end)--]]
 
-				if not Keys.usera then
+				--if not Keys.usera then
 					local s, _ = pcall(function()
 						game:GetService("Players"):BanAsync({
 							UserIds = {Arguments.Player.UserId};
@@ -251,7 +258,7 @@ function mod:_NxWrapper_PostInit()
 						});
 					end)
 					if s then
-						Saved = true;
+						-- Saved = true;
 						task.spawn(function()
 							LogIt(DiscordModule.new()
 								:SetTitle("Player Banned")
@@ -261,7 +268,7 @@ function mod:_NxWrapper_PostInit()
 								:AddField("Reason",Arguments.Reason)
 								:SetCustomThumbnail(HttpService:JSONDecode(HttpService:GetAsync('https://thumbnails.roproxy.com/v1/users/avatar?userIds='..Arguments.Player.UserId..'&size=720x720&format=Png&isCircular=false')).data[1].imageUrl)
 								:SetTimestamp()
-								:SetFooter("Redefine:A BetterBans | Case 0 -- THIS IS A BAN API BAN, NOT A R:A BAN!")
+								:SetFooter("Redefine:A")
 								:SetColor(Color3.new(1, 0, 0))
 								:BuildMessage());
 						end)
@@ -270,9 +277,9 @@ function mod:_NxWrapper_PostInit()
 							Message = "Successfully banned "..Arguments.Player.Name
 						};
 					end
-				end
+				--end
 
-				AssignCaseId(LoadData);
+				--[[AssignCaseId(LoadData);
 				Task = Datastore:Save('BanProfile_'..tostring(Arguments.Player.UserId),LoadData);
 				Task:wait();
 				Saved=not Task.Cancelled;
@@ -320,7 +327,7 @@ function mod:_NxWrapper_PostInit()
 						Success = false,
 						Message = "Failed to ban "..Arguments.Player.Name..' due to an unknown error. (Datastore yielded for too long)'
 					};
-				end
+				end--]]
 			end;
 		}
 	);
@@ -355,7 +362,14 @@ function mod:_NxWrapper_PostInit()
 			};
 
 			OnRun = function(env, Executor, Arguments:{Player:Player,Minutes:number,Reason:string}, Keys)
-				local Load = Datastore:Load('BanProfile_'..tostring(Arguments.Player.UserId)):wait();
+				if env:GetLevel(Arguments.Player) >= env:GetLevel(Executor) then
+					return {
+						Success = false;
+						Message = 'You can\'t ban someone whose level is equal or higher than yours.';
+					}
+				end
+				
+				--[[local Load = Datastore:Load('BanProfile_'..tostring(Arguments.Player.UserId)):wait();
 				local LoadData = Load.Data :: BanData?;
 
 				if LoadData and LoadData.History then
@@ -390,7 +404,7 @@ function mod:_NxWrapper_PostInit()
 					};
 				end;
 
-				if not Keys.usera then
+				if not Keys.usera then]]
 					local s, _ = pcall(function()
 						game:GetService("Players"):BanAsync({
 							UserIds = {Arguments.Player.UserId};
@@ -411,7 +425,7 @@ function mod:_NxWrapper_PostInit()
 								:AddField("Reason",Arguments.Reason)
 								:SetCustomThumbnail(HttpService:JSONDecode(HttpService:GetAsync('https://thumbnails.roproxy.com/v1/users/avatar?userIds='..Arguments.Player.UserId..'&size=720x720&format=Png&isCircular=false')).data[1].imageUrl)
 								:SetTimestamp()
-								:SetFooter("Redefine:A BetterBans | Case 0 -- THIS IS A BAN API BAN, NOT A R:A BAN!")
+								:SetFooter("Redefine:A")
 								:SetColor(Color3.new(1, 0, 0))
 								:BuildMessage()
 							);
@@ -422,7 +436,7 @@ function mod:_NxWrapper_PostInit()
 							Message = "Successfully banned "..Arguments.Player.Name;
 						}
 					end
-				end;
+				--[[end;
 
 
 				AssignCaseId(LoadData);
@@ -448,7 +462,7 @@ function mod:_NxWrapper_PostInit()
 				return {
 					Success = true,
 					Message = "Successfully banned "..Arguments.Player.Name
-				};
+				};]]
 			end;
 		}
 	);
@@ -473,6 +487,12 @@ function mod:_NxWrapper_PostInit()
 			Level = 2;
 
 			OnRun = function(env, Executor, Arguments:{Player:Player,Reason:string}, Keys)
+				if env:GetLevel(Arguments.PlayerId) >= env:GetLevel(Executor) or game.PrivateServerOwnerId~=Executor.UserId then
+					return {
+						Success = false;
+						Message = 'You can\'t ban someone whose level is equal or higher than yours.';
+					}
+				end
 
 				Arguments.Player:Kick("You have been banned from this server. Reason: "..Arguments.Reason);
 
@@ -533,7 +553,7 @@ function mod:_NxWrapper_PostInit()
 					}
 				end
 
-				local Load = Datastore:Load('BanProfile_'..tostring(Arguments.PlayerId)):wait();
+				--[[local Load = Datastore:Load('BanProfile_'..tostring(Arguments.PlayerId)):wait();
 				local LoadData = Load.Data :: BanData?;
 
 				if LoadData and LoadData.History then
@@ -568,7 +588,7 @@ function mod:_NxWrapper_PostInit()
 					};
 				end;
 
-				if not Keys.usera then
+				if not Keys.usera then]]
 					local s, _ = pcall(function()
 						game:GetService("Players"):BanAsync({
 							UserIds = {Arguments.PlayerId};
@@ -589,7 +609,7 @@ function mod:_NxWrapper_PostInit()
 								:AddField("Reason",Arguments.Reason)
 								:SetCustomThumbnail(HttpService:JSONDecode(HttpService:GetAsync('https://thumbnails.roproxy.com/v1/users/avatar?userIds='..Arguments.PlayerId..'&size=720x720&format=Png&isCircular=false')).data[1].imageUrl)
 								:SetTimestamp()
-								:SetFooter("Redefine:A BetterBans | Case 0 -- THIS IS A BAN API BAN, NOT A R:A BAN!")
+								:SetFooter("Redefine:A")
 								:SetColor(Color3.new(1, 0, 0))
 								:BuildMessage());
 						end)
@@ -598,7 +618,7 @@ function mod:_NxWrapper_PostInit()
 							Message = "Successfully banned "..game:GetService('Players'):GetNameFromUserIdAsync(Arguments.PlayerId)
 						};
 					end
-				end
+				--[[end
 
 				AssignCaseId(LoadData);
 				Datastore:Save('BanProfile_'..tostring(Arguments.PlayerId),LoadData):wait();
@@ -625,7 +645,7 @@ function mod:_NxWrapper_PostInit()
 				return {
 					Success = true,
 					Message = "Successfully banned "..Arguments.PlayerId
-				};
+				};]]
 			end;
 		}
 	);
@@ -667,7 +687,7 @@ function mod:_NxWrapper_PostInit()
 					}
 				end
 
-				local Load = Datastore:Load('BanProfile_'..tostring(Arguments.PlayerId)):wait();
+				--[[local Load = Datastore:Load('BanProfile_'..tostring(Arguments.PlayerId)):wait();
 				local LoadData = Load.Data :: BanData?;
 
 				if LoadData and LoadData.History then
@@ -702,7 +722,7 @@ function mod:_NxWrapper_PostInit()
 					};
 				end;
 
-				if not Keys.usera then
+				if not Keys.usera then]]
 					local s, _ = pcall(function()
 						game:GetService("Players"):BanAsync({
 							UserIds = {Arguments.PlayerId};
@@ -723,7 +743,7 @@ function mod:_NxWrapper_PostInit()
 								:AddField("Reason",Arguments.Reason)
 								:SetCustomThumbnail(HttpService:JSONDecode(HttpService:GetAsync('https://thumbnails.roproxy.com/v1/users/avatar?userIds='..Arguments.PlayerId..'&size=720x720&format=Png&isCircular=false')).data[1].imageUrl)
 								:SetTimestamp()
-								:SetFooter("Redefine:A BetterBans | Case 0 -- THIS IS A BAN API BAN, NOT A R:A BAN!")
+								:SetFooter("Redefine:A")
 								:SetColor(Color3.new(1, 0, 0))
 								:BuildMessage()
 							);
@@ -734,7 +754,7 @@ function mod:_NxWrapper_PostInit()
 							Message = "Successfully banned "..game:GetService('Players'):GetNameFromUserIdAsync(Arguments.PlayerId);
 						}
 					end
-				end;
+				--[[end;
 
 				AssignCaseId(LoadData);
 				Datastore:Save('BanProfile_'..tostring(Arguments.PlayerId),LoadData):wait();
@@ -761,12 +781,12 @@ function mod:_NxWrapper_PostInit()
 				return {
 					Success = true,
 					Message = "Successfully banned "..game:GetService('Players'):GetNameFromUserIdAsync(Arguments.PlayerId)
-				};
+				};]]
 			end;
 		}
 	)
 
-	env:RegisterCommand(
+	--[[env:RegisterCommand(
 		{
 			Disabled = false;
 			Name = "Editban";
@@ -877,7 +897,7 @@ function mod:_NxWrapper_PostInit()
 				end;
 			end;
 		}
-	);
+	);]]
 
 	env:RegisterCommand(
 		{
@@ -900,7 +920,7 @@ function mod:_NxWrapper_PostInit()
 			Level = 2;
 
 			OnRun = function(env, Executor, Arguments, Keys)
-				if Serverbans[Arguments.PlayerId] then
+				--[[if Serverbans[Arguments.PlayerId] then
 					Serverbans[Arguments.PlayerId]=nil;
 
 					if game.PrivateServerId == "" then
@@ -1003,14 +1023,24 @@ function mod:_NxWrapper_PostInit()
 						Success = false,
 						Message = "Player has no ban data."
 					};
-				end;
+				end;]]
+				
+				game:GetService("Players"):UnbanAsync({
+					UserIds = {Arguments.PlayerId};
+					ApplyToUniverse = true;
+				});
+				
+				return {
+					Success = true,
+					Message = "Cleared "..Arguments.PlayerId.."'s ban data."
+				};
 			end;
 		}
 	);
 
-	local cache = {}; -- damn
+	--local cache = {}; -- damn
 
-	env:RegisterCommand(
+	--[[env:RegisterCommand(
 		{
 			Disabled = false;
 			Name = "BanHistory";
@@ -1058,8 +1088,8 @@ function mod:_NxWrapper_PostInit()
 				end;
 			end;
 		}
-	);
-	env:RegisterCommand(
+	);]]
+	--[[env:RegisterCommand(
 		{
 			Disabled = false;
 			Name = "OfflineBanHistory";
@@ -1106,9 +1136,9 @@ function mod:_NxWrapper_PostInit()
 				end;
 			end;
 		}
-	);
+	);]]
 
-	env.Signals.JoinEvent:Connect(function(Player)
+	--[[env.Signals.JoinEvent:Connect(function(Player)
 		if Serverbans[Player.UserId] then
 			Player:Kick("You are banned from this server. Reason: "..Serverbans[Player.UserId]);
 		end
@@ -1154,7 +1184,7 @@ function mod:_NxWrapper_PostInit()
 				end);
 			end;
 		end;
-	end);
+	end);]]
 end
 
 return mod

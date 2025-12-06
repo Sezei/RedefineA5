@@ -2,7 +2,7 @@ game:GetService("TestService"):Message("Redefine:A5 | BuildId " .. script.Parent
 local Settings = {
 	NoTaskbar = script.Parent:GetAttribute("notaskbar");
 	ConsoleKeybind = script.Parent:GetAttribute("consolekeybind");
-	
+
 	NotificationSounds = true;
 }; 
 
@@ -10,6 +10,7 @@ local Settings = {
 local ContentProvider = game:GetService("ContentProvider")
 local TweenService:TweenService = game:GetService("TweenService");
 local UserInputService:UserInputService = game:GetService("UserInputService");
+local TextChatService = game:GetService("TextChatService");
 
 -- Inner stuff
 local GUI:ScreenGui = script.Parent;
@@ -24,6 +25,7 @@ env.Dragify = require(script:FindFirstChild("Dragify")); -- Allows creating drag
 env.Cardboard = require(script:FindFirstChild("CardBoard")); -- Allows creating UI elements from the Assets folder; usage: Cardboard(AssetType, Parent, Properties);
 env.Colors = require(script:WaitForChild("ColorLib",1)); -- Allows converting color string into a Color3 instance; Usage: Colors("White") or Colors("255,255,255");
 env.Settings = Settings;
+env.GaggedUsers = {};
 
 -- Find the remotes.
 local InternalEvent:BindableEvent = GUI:FindFirstChild("InternalCommunication") :: BindableEvent;
@@ -56,10 +58,8 @@ end;
 if Assets:FindFirstChild("_Theme") then
 	local Theme = require(Assets._Theme);
 	if type(Theme) == 'table' then -- for the prototype (v.1) testers @ build 120 (those who use this as a custom function)
-		for Func, Replacement in Theme do
-			if env[Func] then
-				env[Func] = Replacement;
-			end
+		for Func, Replacement in Theme do			
+			env[Func] = Replacement;
 		end
 	elseif type(Theme) == 'function' then
 		Theme(env);
@@ -144,7 +144,7 @@ task.spawn(function()
 			cmdstoremove[v.Name] = true;
 		end
 	end
-	
+
 	pcall(function()
 		for _,v:TextChatCommand in game:GetService("TextChatService"):FindFirstChild("TextChatCommands"):GetChildren() do
 			if table.find(cmdstoremove, '/'..v.PrimaryAlias) then
@@ -343,6 +343,8 @@ end);
 UserInputService.InputBegan:Connect(function(input)
 	-- Ignore the input if there's already an active input field
 	if UserInputService:GetFocusedTextBox() then return end;
+	-- Ignore the input if there's the player's typing in LagChatService
+	if game:GetService("TextChatService").ChatInputBarConfiguration.IsFocused then return end;
 
 	if input.KeyCode == (Settings.ConsoleKeybind and Enum.KeyCode[Settings.ConsoleKeybind] or Enum.KeyCode.Equals) then
 		OpenConsole();
@@ -946,6 +948,41 @@ if not Settings.NoTaskbar then
 	end;
 end;
 
+do
+	if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+
+		local PrevTextChatOnIncomingMessage = TextChatService.OnIncomingMessage;
+		TextChatService.OnIncomingMessage = function(message)
+			local userId = message.TextSourceUserId;
+			if userId and env.GaggedUsers[userId] then
+				local props = Instance.new("TextChatMessageProperties");
+				props.ShouldDeliver = false;
+				return props;
+			else
+				if PrevTextChatOnIncomingMessage then -- very dangerous game here icl
+					return PrevTextChatOnIncomingMessage(message)
+				end
+			end
+		end
+
+	end;
+end
+
+local function refreshGagList()
+	local success, list = pcall(function()
+		return RemoteFunction:InvokeServer("GetGaggedUsers");
+	end);
+	if not success or typeof(list) ~= "table" then return end;
+	env.GaggedUsers = {};
+	for _, userId in pairs(list) do
+		if typeof(userId) == "number" then
+			env.GaggedUsers[userId] = true;
+		end
+	end
+end
+
+refreshGagList();
+
 -- Connect the remotes.
 RemoteEvent.OnClientEvent:Connect(function(...)
 	local Arguments = {...};
@@ -964,6 +1001,34 @@ RemoteEvent.OnClientEvent:Connect(function(...)
 		env.ReceivePrivateConversation(Arguments[1], Arguments[2]);
 	elseif EventName == "Hint" then
 		env.CreateHint(Arguments[1], Arguments[2], Arguments[3])
+	elseif EventName == "GagState" then
+		local payload = Arguments[1];
+		local gagged = Arguments[2];
+		if typeof(payload) == "table" then
+			env.GaggedUsers = {};
+			for _, userId in pairs(payload) do
+				if typeof(userId) == "number" then
+					env.GaggedUsers[userId] = true;
+				end
+			end
+		elseif typeof(payload) == "number" then
+			if gagged then
+				env.GaggedUsers[payload] = true;
+				if payload == LocalPlayer.UserId then
+					env.CreateNotification("You have been gagged and cannot chat.", {
+						Type = "Warning";
+						Timeout = 10;
+					});
+				end
+			else
+				env.GaggedUsers[payload] = nil;
+				if payload == LocalPlayer.UserId then
+					env.CreateNotification("You have been ungagged and can chat again.", {
+						Timeout = 10;
+					});
+				end
+			end
+		end
 	elseif env.ClientEvents[EventName] then
 		env.ClientEvents[EventName](unpack(Arguments));
 	end
@@ -997,7 +1062,7 @@ RemoteFunction.OnClientInvoke = function(...)
 	elseif env.ClientFunctions[FunctionName] then
 		return env.ClientFunctions[FunctionName](unpack(Arguments));
 	end
-	
+
 	return warn("Unknown client function call attempt: "..FunctionName);
 end;
 

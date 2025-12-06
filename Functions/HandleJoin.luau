@@ -1,9 +1,19 @@
 local Handled = {};
+local OnboardData;
+
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+	Handled[player.UserId] = nil;
+end)
 
 return function (env, player)
 	if Handled[player.UserId] == true then
-		return
+		return false
 		-- cant handle!
+	end;
+	
+	if not OnboardData then
+		OnboardData = env.PersistStorage:Load('Settings'):wait(20).Data or {};
+		print(OnboardData);
 	end;
 
 	local clone = env.RedefineAUI:Clone();
@@ -133,30 +143,49 @@ return function (env, player)
 			end;
 		end)
 		
-		-- Onboarding is only working for the game/group owner
-		local data = env.PersistStorage:Load('Settings'):wait().Data
-		
-		if (env.IsOwner(player) or game:GetService("RunService"):IsStudio()) and (not data.latestChangelog or (data.latestChangelog < env.NxEngine.BuildId)) then
-			local clone = env.MainModule.Onboarding:Clone();
-			clone:SetAttribute("nxversion", env.NxEngine.BuildId or "Nightly")
-			clone:SetAttribute('settings', env.Serializer.encode(env.Data.Settings))
+		if (env.IsOwner(player) or game:GetService("RunService"):IsStudio()) and (not OnboardData.latestChangelog or (OnboardData.latestChangelog < env.NxEngine.BuildId)) then
+			task.spawn(function()
+				local NotifyText = "Onboarding is not set up!";
+				if OnboardData.latestChangelog then NotifyText = "Onboarding may need to be updated." end;
+				local notification = env:Notify(player, NotifyText, {
+					Type = 'Warning';
+					Options = {
+						["Open"] = {Primary = true; Text = "Open Onboarding"};
+						["SetDefaults"] = "Set to Defaults";
+					};
+					Timeout = 60;
+				});
+				
+				notification:AwaitResponse(function(response)
+					if response == "Open" then
+						local clone = env.MainModule.Onboarding:Clone();
+						clone:SetAttribute("nxversion", env.NxEngine.BuildId or "Nightly")
+						clone:SetAttribute('settings', env.Serializer.encode(env.Data.Settings))
 
-			if not data.latestChangelog then -- not a real setting but we'll add it as a mod ;p
-				data.latestChangelog = 124;
-			end
-				
-			clone:SetAttribute('basesettings', env.Serializer.encode(data))
-			clone.Parent = player.PlayerGui
-			
-			clone.Onboarding:FindFirstChild('Onboarding').Enabled = true;
-				
-			env.Data.AllowOnboardResponse = player.UserId;
+						if not OnboardData.latestChangelog then
+							OnboardData.latestChangelog = 124;
+						end
+
+						clone:SetAttribute('basesettings', env.Serializer.encode(OnboardData))
+						clone.Parent = player.PlayerGui
+
+						clone.Onboarding:FindFirstChild('Onboarding').Enabled = true;
+
+						env.Data.AllowOnboardResponse = player.UserId;
+					else
+						env.Data.Settings.latestChangelog = env.NxEngine.BuildId;
+						env.PersistStorage:Save('Settings', env.ValidateSettings(env.Data.Settings));
+					end
+				end)
+			end)
 		end
 	end);
 
 	if not success then
 		if player.Parent then -- If the player is still in the game, readd them to the queue
 			warn("An error has occurred handling "..player.Name..".. | "..ret);
+			
+			return false;
 		end
 	end
 
@@ -165,4 +194,6 @@ return function (env, player)
 			Handled[player.UserId] = false;
 		end
 	end)
+	
+	return true;
 end

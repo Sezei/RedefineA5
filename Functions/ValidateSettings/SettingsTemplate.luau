@@ -61,4 +61,11 @@ return {
 	EnableFriendNotifications = {'boolean', false},
 	DisableDS = {'boolean', false},
 	EnableDebug = {'boolean', false},
+	
+	-- Experimental
+	AutoRefresh = {'boolean', false},
+	InterchangableIls = {'boolean', false},
+	
+	-- Onboarding stuff
+	latestChangelog = {'number',124},
 };

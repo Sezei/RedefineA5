@@ -23,6 +23,12 @@ return function(env)
 				Copy[k] = v;
 			end
 			return Copy;
+		elseif MainData == "GetGaggedUsers" then
+			local result = {};
+			for userId in pairs(env.Data.Ingame.Gagged or {}) do
+				table.insert(result, userId);
+			end
+			return result;
 		elseif env.RemoteFunctionListeners and env.RemoteFunctionListeners[MainData] then
 			env.RemoteFunctionListeners[MainData](player,...);
 		end
