@@ -5,7 +5,7 @@ local OwnerId;
 local env = {
 	-- Version info
 	NxEngine = {
-		BuildId = 131;
+		BuildId = 134;
 	};
 
 	-- In-game Data
@@ -61,13 +61,13 @@ function env.IsOwner(Player:Player|number)
 	if typeof(Player) == 'Instance' then -- for some reason setting typeof()=='player' isn't valid, so 'Instance' is the only way to check
 		if game.CreatorType == Enum.CreatorType.User and Player.UserId == game.CreatorId then
 			return true
-		elseif game.CreatorType == Enum.CreatorType.Group and Player:IsInGroup(game.CreatorId) then
-			local s, r = pcall(Player.GetRankInGroup, Player, game.CreatorId);
+		elseif game.CreatorType == Enum.CreatorType.Group and Player:IsInGroupAsync(game.CreatorId) then
+			local s, r = pcall(Player.GetRankInGroupAsync, Player, game.CreatorId);
 			if s and r == 255 then
 				return true
 			end;
 		end
-		
+
 		return false
 	else
 		if game.CreatorType == Enum.CreatorType.User and Player == game.CreatorId then
@@ -75,16 +75,16 @@ function env.IsOwner(Player:Player|number)
 		elseif game.CreatorType == Enum.CreatorType.User then
 			return false -- dont waste precious time
 		end
-		
+
 		local s, r = pcall(function()
 			OwnerId = OwnerId or GroupService:GetGroupInfoAsync(game.CreatorId).Owner.Id; -- query this bag of yielding piece of-- only once
 			return OwnerId == Player;
 		end)
-		
+
 		if s then
 			return r;
 		end;
-		
+
 		return false
 	end
 end

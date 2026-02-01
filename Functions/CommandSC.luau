@@ -52,9 +52,13 @@ return function (env:{Data:{Logs:{System:SysLog}};warn:(number|string,string?)->
 				"custom"; -- i forgot to add this LONG AGO jeez
 				"slider"; -- Compatibility stuff
 				"dependant"; -- Added build 105 - still todo so use 'custom' for now
+				"rawinput";
+				"playeridentity";
+				"playeridentifier";
+				"time";
 			};
 			if not (table.find(matchingtypes, typeofcommand)) then
-				env.warn(v.Name.." might error: Argument "..argkey.." has an invalid type.");
+				env.warn(v.Name.." might error: Argument "..argkey.." has an invalid type: "..argument.Type);
 			end
 
 			-- Check string sanity

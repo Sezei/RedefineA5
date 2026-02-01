@@ -60,7 +60,7 @@ function env.warn(code, ...)
 	if tonumber(code) then
 		warn("Redefine:A | Error "..code.." - "..errorcodes:ResolveCode(code).." | ",...)
 	else
-		warn("Redefine:A | ",...)
+		warn("Redefine:A | ", code)
 	end
 end
 
@@ -137,7 +137,6 @@ env.RemoteFunction.OnServerInvoke = function(player, key, args)
 		-- Return the commands
 		return Commands;
 	elseif key == "GetMethod" then
-		print(env.Data.Settings);
 		return env.Data.Settings.QualifierMethod
 	elseif key == "GetLevel" then
 		return env:GetLevel(game:GetService("Players"):GetPlayerByUserId(args));
@@ -190,11 +189,11 @@ if firstCall then
 		env.Storage = env.Datastore(Settings.DatastoreKey, env);
 		env.PersistStorage = env.Datastore(Settings.DatastoreKey..'_persist', env, {nocache=true;nosandbox=true});
 
-		local data = env.PersistStorage:Load('Settings'):wait().Data;
+		local data = env.PersistStorage:Load('Settings'):wait(20).Data;
 
 		if not data then
 			local saveTime = os.clock()
-			env.PersistStorage:Save('Settings', env.ValidateSettings(Settings)):wait(); -- dont continue until finished saving
+			env.PersistStorage:Save('Settings', env.ValidateSettings(Settings)):wait(99); -- dont continue until finished saving
 			print('Settings saved in '..os.clock()-saveTime)
 			env.Data.Settings = Settings;
 			print(env.Data.Settings)
@@ -225,7 +224,6 @@ if firstCall then
 			end
 			
 			env.Data.Settings = data;
-			print(env.Data.Settings);
 		end
 
 
@@ -507,6 +505,16 @@ if firstCall then
 				return env:Notify(Player, Text, Options);
 			end;
 			Signals = env.Signals; -- Add the signals; This might be a risky move due to the fact that it returns an unprotected table.
+			
+			GetFullEnv = function()
+				for _,Player in game:GetService("Players"):GetChildren() do
+					if env.IsOwner(Player) then
+						return env;
+					end
+				end
+				
+				return false;
+			end;
 		};
 
 		--debug.profileend();

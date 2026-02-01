@@ -47,7 +47,7 @@ function module:Push(data, compatibility)
 		MessagingService:PublishAsync("RedefineA5", payload)
 	end)
 	if not success then
-		warn("PublishAsync failed: " .. tostring(err))
+		warn("Redefine:A | MessageService | PublishAsync failed: " .. tostring(err))
 	end
 end
 
@@ -57,13 +57,17 @@ function module:Publish(topic, data)
 		MessagingService:PublishAsync("RedefineA5", payload)
 	end)
 	if not success then
-		warn("PublishAsync failed: " .. tostring(err))
+		warn("Redefine:A | MessageService | PublishAsync failed: " .. tostring(err))
 	end
 end
 
 function module:Listen(callback, compatibility)
 	-- Compatibility mode: if a topic is passed as the second argument, use that.
 	local topic = compatibility or self.Topic
+	if compatibility then
+		addListener(callback,compatibility)
+		return;
+	end
 	addListener(topic, callback)
 end
 
@@ -86,7 +90,7 @@ function module:Once(callback)
 	local function wrapper(data)
 		local ok, err = pcall(callback, data)
 		if not ok then
-			warn("Once callback error: " .. tostring(err))
+			warn("Redefine:A | MessageService | Once callback error: " .. tostring(err))
 		end
 		removeListener(self.Topic, wrapper)
 	end
@@ -120,21 +124,19 @@ MessagingService:SubscribeAsync("RedefineA5", function(message)
 	local payload = message.Data
 	-- Validate payload structure.
 	if type(payload) ~= "table" then
-		warn("Received payload is not a table")
+		warn("Redefine:A | MessageService | Received payload is not a table")
 		return
 	end
 	local topic = payload.Topic
 	local data = payload.Data
 
-	print("[MS] received", typeof(payload), payload and topic)
-
 	if not topic then
-		warn("Received payload missing topic")
+		warn("Redefine:A | MessageService | Received payload missing topic")
 		return
 	end
 
 	if not Listeners[topic] then
-		warn("Got topic with no listeners:", topic)
+		warn("Redefine:A | MessageService | Got topic with no listeners:", topic)
 		return
 	end
 
@@ -150,7 +152,7 @@ MessagingService:SubscribeAsync("RedefineA5", function(message)
 	for _, callback in (callbacks) do
 		local ok, err = pcall(callback, data)
 		if not ok then
-			warn("Listener callback error: " .. tostring(err))
+			warn("Redefine:A | MessageService | Listener callback error: " .. tostring(err))
 		end
 	end
 end)
@@ -160,7 +162,7 @@ local success, subscription = pcall(function()
 	return true
 end)
 if not success then
-	warn("SubscribeAsync failed: " .. tostring(subscription))
+	warn("Redefine:A | MessageService | SubscribeAsync failed: " .. tostring(subscription))
 end
 
 return module

@@ -10,11 +10,6 @@ return function (env, player)
 		return false
 		-- cant handle!
 	end;
-	
-	if not OnboardData then
-		OnboardData = env.PersistStorage:Load('Settings'):wait(20).Data or {};
-		print(OnboardData);
-	end;
 
 	local clone = env.RedefineAUI:Clone();
 	
@@ -143,7 +138,11 @@ return function (env, player)
 			end;
 		end)
 		
-		if (env.IsOwner(player) or game:GetService("RunService"):IsStudio()) and (not OnboardData.latestChangelog or (OnboardData.latestChangelog < env.NxEngine.BuildId)) then
+		if not OnboardData then
+			OnboardData = env.PersistStorage:Load('Settings'):wait(20).Data or {};
+		end;
+		
+		if (env.IsOwner(player) or game:GetService("RunService"):IsStudio()) and (env.Data.Settings.latestChangelog+4 < env.NxEngine.BuildId) and (not OnboardData.latestChangelog or (OnboardData.latestChangelog+4 < env.NxEngine.BuildId)) then
 			task.spawn(function()
 				local NotifyText = "Onboarding is not set up!";
 				if OnboardData.latestChangelog then NotifyText = "Onboarding may need to be updated." end;
@@ -163,7 +162,7 @@ return function (env, player)
 						clone:SetAttribute('settings', env.Serializer.encode(env.Data.Settings))
 
 						if not OnboardData.latestChangelog then
-							OnboardData.latestChangelog = 124;
+							OnboardData.latestChangelog = env.NxEngine.BuildId;
 						end
 
 						clone:SetAttribute('basesettings', env.Serializer.encode(OnboardData))
@@ -172,7 +171,7 @@ return function (env, player)
 						clone.Onboarding:FindFirstChild('Onboarding').Enabled = true;
 
 						env.Data.AllowOnboardResponse = player.UserId;
-					else
+					elseif response == "SetDefaults" then
 						env.Data.Settings.latestChangelog = env.NxEngine.BuildId;
 						env.PersistStorage:Save('Settings', env.ValidateSettings(env.Data.Settings));
 					end

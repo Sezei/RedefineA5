@@ -1,120 +1,34 @@
-local function ArgSplit(str:string) : {string}
-	local args:{string} = {};
+local Types = require(script:WaitForChild("Types"));
+
+local function ArgSplit(str: string) : {string}
+	local args: {string} = {};
 	local inquote = false;
 	local current = "";
-	for i = 1,#str do
-		local char = str:sub(i,i);
+
+	for i = 1, #str do
+		local char = str:sub(i, i);
 		if char == '"' then
 			inquote = not inquote;
 		elseif char == " " and not inquote then
-			table.insert(args,current);
+			table.insert(args, current);
 			current = "";
 		else
-			current = current..char;
+			current ..= char;
 		end
 	end
-	table.insert(args,current);
+
+	table.insert(args, current);
 	return args;
 end
 
 local sortedqualifiers; -- To be sorted later.
 
-local function FindPlayers(env, Names, Executor) : {Player} -- Function that finds players by name or displayname.
-	if string.len(Names) == 0 then return {} end -- If the name is empty, return nil.
-
-	-- Check if there are any ',' in the name. If there are, split the name into multiple names.
-	local names = string.split(Names,",")
-	local matches:{Player} = {} -- Table that will contain all the matches.
-	-- Loop through all the players.
-	for _,Name in names do
-		do
-			local Name = Name; -- localise the name variable into the do-end block so it won't affect the qualifiers
-			if env.Data.Settings.InterchangableIls then
-				Name = string.gsub(Name,'I','l');
-			end
-			
-			for _,v in game:GetService("Players"):GetPlayers() do
-				local supposedName = v.Name;
-				local supposedDName = v.DisplayName;
-				local matched = false; -- If a player has been matched, this will be set to true so they won't be matched again and again.
-
-				if env.Data.Settings.InterchangableIls then
-					-- Change all uppercase Is to lowercase Ls
-					supposedName = string.gsub(supposedName, 'I', 'l');
-					supposedDName = string.gsub(supposedDName, 'I', 'l');
-				end
-
-				-- Check if the executor started the Name with #; This will use the players' Local PlayerId (#1 = First Join, #2 = Second join, etc.)
-				-- The players have a 'ra_LocalId' attribute that is set when they join the game.
-				if Name:sub(1,1) == "#" then
-					local LocalId = v:GetAttribute("ra_LocalId");
-					if LocalId then
-						if tonumber(Name:sub(2)) == LocalId then
-							matches[#matches+1] = v
-							matched = true;
-						end
-					end
-				end
-				
-				if Name:sub(1,4) == "uid:" then
-					-- userid mentioned? 👀
-					if tonumber(Name:sub(5)) == v.UserId then
-						matches[#matches+1] = v
-						matched = true;
-					end
-				end
-
-				-- Because of the '@'; prioritise checking the username first before the displayname; Alongside that, it will also not check for the displayname.
-				local s1 = string.lower("@"..v.Name)
-				if s1:sub(1, #Name) == string.lower(Name) then
-					if not matched then
-						matches[#matches+1] = v
-					end
-				end
-
-				-- Check for the displayname.
-				local s1 = string.lower(v.DisplayName)
-				if s1:sub(1, #Name) == string.lower(Name) then
-					if not matched then
-						matches[#matches+1] = v
-					end
-				end
-
-				-- Check for the username.
-				local s1 = string.lower(v.Name)
-				if s1:sub(1, #Name) == string.lower(Name) then
-					if not matched then
-						matches[#matches+1] = v
-					end
-				end
-			end
-		end
-
-		-- Check the sortedqualifiers table for any matches; If there are any, handle them and add them to the matches table.
-		-- Only do it if there are no other matches too
-		if not matches[1] then
-			for method, qualifier in (sortedqualifiers) do
-				if string.lower(Name) == string.lower(method) then
-					local Players = game:GetService("Players"):GetPlayers();
-					local MatchedPlayers = qualifier.identifier(env, Players, Executor);
-					for _, Player in (MatchedPlayers) do
-						table.insert(matches, Player);
-					end;
-				end;
-			end;
-		end;
-	end
-
-	-- Remove duplicates.
-	local newmatches:{Player} = {}
-
-	for _,v in matches do
-		if not table.find(newmatches,v) then
-			table.insert(newmatches,v)
-		end
-	end
-
-	return newmatches -- Return the matches.
+local function Fail(env, player: Player, Message: string, Options: {[any]: any}?)
+	env:Notify(player, Message, Options or {
+		Type = "error";
+		Client = true;
+	});
+	return false;
 end
 
 type Chatlog = {
@@ -130,910 +44,436 @@ type Qualifier = {
 	identifier:any;
 };
 
-type CommandData = { --todo
-
-};
-
-export type Command = --todo
-{
+export type Command = {
 	Disabled:boolean?;
 };
 
+local function ParseCommandKeys(env, player: Player, args: {string})
+	local commandkeys = {};
+
+	for i = #args, 1, -1 do
+		local arg = args[i];
+		if arg:sub(1, 2) == "--" then
+			local key = arg:sub(3);
+			local value: any = true;
+
+			if key == "" then
+				env:Notify(player, "You have entered an invalid key; Ignoring key.", {
+					Type = "warning";
+					Client = true;
+				});
+				table.remove(args, i);
+				continue
+			end
+
+			if key:find("=") then
+				local split = key:split("=");
+				key = split[1];
+				value = split[2];
+
+				if key == "" then
+					env:Notify(player, "You have entered an invalid key; Ignoring key.", {
+						Type = "warning";
+						Client = true;
+					});
+					table.remove(args, i);
+					continue
+				end
+
+				if value == "" then
+					env:Notify(player, "You have entered an invalid value for key " .. key .. "; Ignoring value.", {
+						Type = "warning";
+						Client = true;
+					});
+					table.remove(args, i);
+					continue
+				end
+			end
+
+			commandkeys[string.lower(key)] = tonumber(value) or value;
+			table.remove(args, i);
+		end
+	end
+
+	return commandkeys, args;
+end
+
+local function CooldownCheck(env, player: Player, command)
+	if command.Cooldown > 0 then
+		if not (type(command.LastRun) == "number") then command.LastRun = 0 end;
+		if command.LastRun + command.Cooldown > tick() then
+			env:Notify(player, "This command is on cooldown. You can run it again in " .. math.floor((command.LastRun + command.Cooldown) - tick()) .. " seconds.", {
+				Type = "warning";
+				Client = true;
+			});
+			return false;
+		end
+	end
+
+	if command.UserCooldown > 0 then
+		if not (type(command.LastRunBy) == "table") then command.LastRunBy = {} end;
+		if command.LastRunBy[player.UserId] and command.LastRunBy[player.UserId] + command.UserCooldown > tick() then
+			env:Notify(player, "This command is on cooldown for you. You can run it again in " .. math.floor((command.LastRunBy[player.UserId] + command.UserCooldown) - tick()) .. " seconds.", {
+				Type = "warning";
+				Client = true;
+			});
+			return false;
+		end
+	end
+
+	return true;
+end
+
+local function BuildSortedArguments(env, player: Player, command, args: {string})
+	local sortedarguments = {};
+
+	if type(command.Arguments) == "string" and command.Arguments:lower() == "rawinput" then
+		-- Just send the raw input to the command, and instead of having Args['name'], it will be Args[1], etc.
+		if env.Data.Settings.EnableDebug then
+			print(`Redefine:A Debug | {command.Name} is a RAWINPUT type command.`)
+		end
+		return true, args;
+	end
+
+	if type(command.Arguments) ~= "table" then
+		return true, sortedarguments;
+	end
+
+	for argposition, arg in command.Arguments do
+		local context = {}; -- Prepare a context thing for when we might need it.
+		local ok, value, errType, errProps = Types.Parse(env, player, command, arg, args, argposition, sortedarguments, context);
+		if not ok then
+			return Fail(env, player, tostring(value), errProps or {
+				Type = errType or "error";
+				Client = true;
+			});
+		end
+
+		sortedarguments[arg.Name] = value;
+	end
+
+	return true, sortedarguments;
+end
+
 local function runCommand(env, player, msg, console)
-	local success:boolean, err:string? = pcall(function()
-		if msg:sub(1,#env.Data.Settings.Prefix) == env.Data.Settings.Prefix or msg:sub(1,4) == "r:a_" then
-			local returnresponse = {Success = nil; Message = nil};
-			local args;
-			if msg:sub(1,4) == "r:a_" then
-				args = ArgSplit(msg:sub(5));
+	local success: boolean, err: string? = pcall(function()
+		if msg:sub(1, #env.Data.Settings.Prefix) ~= env.Data.Settings.Prefix and msg:sub(1, 4) ~= "r:a_" then
+			return;
+		end
+
+		local args;
+		if msg:sub(1, 4) == "r:a_" then
+			args = ArgSplit(msg:sub(5));
+		else
+			args = ArgSplit(msg:sub(#env.Data.Settings.Prefix + 1));
+		end;
+
+		local cmd = string.lower(args[1] or "");
+		table.remove(args, 1);
+
+		-- PreProcess hooks
+		for _, v in env.Hooks.Command.PreProcess do
+			local ok, response = pcall(function()
+				return v(env, player, cmd, args, console);
+			end);
+
+			if not ok then
+				warn("Redefine:A | PreProcess Hook error: " .. tostring(response));
+				table.insert(env.Data.Logs.Errors, {os.time(), `Hook Failed: PreProcess: with error; {response}`});
+				continue;
+			end
+
+			if type(response) == "nil" then continue end;
+
+			if type(response) == "table" then
+				if response.Cancel then
+					return;
+				end
+				if response.Command then
+					cmd = response.Command;
+				end
+				if response.Arguments then
+					args = response.Arguments; -- keep it a table
+				end
+			elseif type(response) == "boolean" then
+				if response == false then
+					return;
+				end
+			end
+		end
+
+		if not (env.Commands[cmd] or env.Aliases[cmd]) then
+			return;
+		end
+
+		local command = env.Commands[cmd] or env.Aliases[cmd];
+
+		if command.Disabled and not command.DisallowDisabling then
+			return Fail(env, player, "This command is disabled.", {
+				Type = "error";
+				Client = true;
+			});
+		end
+
+		local ignorelevel = false;
+		local response = command.RunCapability and command.RunCapability(env, player);
+
+		if type(response) ~= "nil" then
+			ignorelevel = true;
+
+			if response ~= true then
+				if type(response) == "string" then
+					return Fail(env, player, "You are not allowed to run this command: " .. response, {Type = "error"; Client = true;});
+				else
+					return Fail(env, player, "You are not allowed to run this command.", {Type = "error"; Client = true;});
+				end
+			end
+		end
+
+		if command.Level > env:GetLevel(player) and not ignorelevel then
+			return Fail(env, player, "You are not allowed to run this command.", {Type = "error"; Client = true;});
+		end
+
+		-- Early cooldown check
+		if not CooldownCheck(env, player, command) then
+			return;
+		end
+
+		local commandkeys;
+		commandkeys, args = ParseCommandKeys(env, player, args);
+
+		if env.Data.Settings.EnableDebug then
+			print(`Redefine:A Debug | Processing {command.Name}'s argument type`)
+		end
+
+		local okArgs, sortedarguments = BuildSortedArguments(env, player, command, args);
+		if not okArgs then
+			return;
+		end
+
+		if env.Data.Settings.EnableDebug then
+			print(`Redefine:A Debug | Processed {command.Name}`)
+		end
+
+		-- KEEP LOGGING AS IS!
+		if not commandkeys["silent"] then
+			table.insert(env.Data.Logs.Commands, {
+				os.time();
+				player.UserId;
+				console and "console" or "chat";
+				msg;
+			});
+		end
+
+		-- Check to see if the player added a --delay flag; If they did, then delay the command
+		if commandkeys["delay"] then
+			local delay = tonumber(commandkeys["delay"]);
+			if delay then
+				delay = math.clamp(delay, 0, 60);
+				task.wait(delay);
 			else
-				args = ArgSplit(msg:sub(#env.Data.Settings.Prefix+1));
-			end;
-			local cmd = string.lower(args[1]);
-			table.remove(args,1);
+				env:Notify(player, "Couldn't delay the command due to the value being a non-number.", {
+					Type = "warning";
+					Client = true;
+				});
+			end
+		end
 
-			for _,v in pairs(env.Hooks.Command.PreProcess) do
-				local success:boolean, response:{Cancel:boolean?;Command:string?;Arguments:{string}?} = pcall(function() return v(env, player, cmd, args, console) end);
+		-- Last minute cooldown check
+		if not CooldownCheck(env, player, command) then
+			return;
+		end
 
-				if not success then warn('Redefine:A | PreProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PreProcess: with error; {response}`}) end;
+		for _, v in env.Hooks.Command.PostProcess do
+			local ok, response2 = pcall(function()
+				return v(env, player, cmd, sortedarguments, console);
+			end);
 
-				if type(response)=='nil' then continue end;
+			if not ok then
+				warn("Redefine:A | PostProcess Hook error: " .. tostring(response2));
+				table.insert(env.Data.Logs.Errors, {os.time(), `Hook Failed: PostProcess: with error; {response2}`});
+				continue;
+			end
 
-				if type(response) == "table" then
-					if response.Cancel then -- Cancel the command.
-						return
-					end
-					if response.Command then -- Change the command
-						cmd = response.Command
-					end
-					if response.Arguments then -- Change the arguments
-						args = tostring(response.Arguments)
-					end
-				elseif type(response)=='boolean' then
-					if response == false then -- Cancel the command.
-						return
-					end
-				end;
-			end;
+			if type(response2) == "nil" then continue end;
 
-			if env.Commands[cmd] or env.Aliases[cmd] then
-				local command = env.Commands[cmd] or env.Aliases[cmd];
-				-- Check what level the player is
-				if command.Disabled and not command.DisallowDisabling then
-					-- Warn the player that the command is disabled
-					env:Notify(player,"This command is disabled.",{
-						Type = "error";
-						Client = true;
-					})
-					return
+			if type(response2) == "table" then
+				if response2.Cancel then
+					return;
+				end
+				if response2.Arguments then
+					sortedarguments = response2.Arguments;
+				end
+			elseif type(response2) == "boolean" then
+				if response2 == false then
+					return;
+				end
+			end
+		end
+
+		if env.Data.Settings.EnableDebug then
+			print(`Redefine:A Debug | Attempting to run thread with command {command.Name}, with ArgumentsType {type(command.Arguments)=='string' and string.lower(command.Arguments)=='rawinput' and 'RAWINPUT' or 'NORMAL'}`)
+		end
+
+		task.spawn(function()
+			local successRun, ret;
+			local clientsuccess, clientret;
+			local compatibility = false;
+
+			if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) then
+				compatibility = true;
+				if sortedarguments[1] then
+					table.insert(sortedarguments, 1, command.Name);
+				end
+				successRun, ret = pcall(function()
+					return command.OnRun(player, sortedarguments, env);
+				end)
+			else
+				if command.OnRun then
+					successRun, ret = pcall(function()
+						return command.OnRun(env, player, sortedarguments, commandkeys);
+					end)
 				end
 
-				local ignorelevel = false;
+				if command.OnClientRun then
+					local okInvoke, r1, r2 = pcall(function()
+						return env.RemoteFunction:InvokeClient(player, "RunClientCommand", command.Name:lower(), sortedarguments, commandkeys);
+					end)
 
-				local response = command.RunCapability(env, player);
-				if type(response) ~= "nil" then
-					-- It's being checked, ignore the level.
-					ignorelevel = true;
-
-					if response == true then
-						-- The player has permission to run the command.
+					if okInvoke then
+						clientsuccess, clientret = r1, r2;
 					else
-						-- The player doesn't have permission to run the command.
-						if type(response) == "string" then
-							env:Notify(player,"You are not allowed to run this command: "..response,{
-								Type = "error";
-								Client = true;
-							})
-						elseif type(response) == "boolean" then
-							env:Notify(player,"You are not allowed to run this command.",{
-								Type = "error";
-								Client = true;
-							})
-						end
-						return
+						clientsuccess = false;
+						clientret = tostring(r1);
 					end
-				end;
+				end
+			end
 
-				if command.Level > env:GetLevel(player) and not ignorelevel then
-					env:Notify(player,"You are not allowed to run this command.",{
+			if clientsuccess ~= nil then
+				if not clientsuccess and clientret then
+					env.RemoteEvent:FireClient(player, "Notify", "Client-sided error while running " .. cmd .. "; " .. tostring(clientret), {
 						Type = "error";
-						Client = true;
-					})
-					return
-				end
-
-				if command.Cooldown > 0 then
-					if not (type(command.LastRun) == "number") then command.LastRun = 0 end
-					if command.LastRun + command.Cooldown > tick() then
-						env:Notify(player,"This command is on cooldown. You can run it again in "..math.floor((command.LastRun + command.Cooldown) - tick()).." seconds.",{
-							Type = "warning";
-							Client = true;
-						})
-						return
-					end
-
-				end
-
-				if command.UserCooldown > 0 then
-					if not (type(command.LastRunBy) == "table") then command.LastRunBy = {} end
-					if command.LastRunBy[player.UserId] and command.LastRunBy[player.UserId] + command.UserCooldown > tick() then
-						env:Notify(player,"This command is on cooldown for you. You can run it again in "..math.floor((command.LastRunBy[player.UserId] + command.UserCooldown) - tick()).." seconds.",{
-							Type = "warning";
-							Client = true;
-						})
-						return
-					end
-				end
-
-				-- Sometimes the people can also add keys (For example, --silent) to the command, which can be used to change the way the command works.
-				-- We can check if a command has a key by checking if any 'argument' starts with a double-dash (--)
-				-- Sometimes keys can also have values, for example, --silent=true
-				-- We can check if a key has a value by checking if it contains an equals sign (=); But it must be have a key first.
-
-				-- For each key added, we remove it from the arguments table, and add it to the commandkeys table.
-				local commandkeys = {};
-
-				for i,arg in args do
-					if arg:sub(1,2) == "--" then
-						-- It's a key!
-						local key = arg:sub(3);
-						local value = true;
-
-						-- Check if it has a value
-						if key:find("=") then
-							local split = key:split("=");
-							key = split[1];
-							value = split[2];
-							-- Check to see if the key is not empty
-							if key == "" then
-								env:Notify(player,"You have entered an invalid key; Ignoring key.",{
-									Type = "warning";
-									Client = true;
-								})
-								table.remove(args,i);
-								continue
-							end
-
-							-- Check to see if the value is not empty
-							if value == "" then
-								env:Notify(player,"You have entered an invalid value for key ".. key .."; Ignoring value.",{
-									Type = "warning";
-									Client = true;
-								})
-								table.remove(args,i);
-								continue
-							end
-						end
-
-						commandkeys[string.lower(key)] = tonumber(value) or value; -- Convert the value to a number if it's a number; Otherwise, just use the value.
-						table.remove(args,i);
-					end
-				end
-
-				local sortedarguments = {};
-
-				if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Processing {command.Name}'s argument type`) end
-
-				if type(command.Arguments) == 'string' and command.Arguments:lower() == 'rawinput' then
-					-- Just send the raw input to the command, and instead of having Args['name'], it will be Args[1], etc.
-					sortedarguments = args;
-					if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | {command.Name} is a RAWINPUT type command.`) end
-				elseif type(command.Arguments) == 'table' then
-					for argposition,arg in command.Arguments do
-						-- Arguments are built like this;
-					--[[
-						Argument = {
-							Name = "Name";
-							Type = "Player(s)/SafePlayer(s)/Number/String";
-							Required = true/false;
-							Default = "Default"; -> Only applies to Number/String (There can't be a default value for a player)
-						}
-					]]
-
-						local argtype = arg.Type:lower();
-						local argname = arg.Name;
-						local argrequired = arg.Required;
-						local argdefault = arg.Default; -- If the argument is not required, this is the default value for it
-						local argtext = args[argposition]; -- The text that the player has entered for the argument
-
-						if argtype == "player" then -- If the argument type is player, then we need to find a player and return the argument as the player instance for the command to use
-							if not argtext then
-								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired then
-									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif command.Arguments[argposition+1] then
-									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									-- If it is not required and there is no other argument, then use the player as the argument
-									sortedarguments[argname] = player;
-								end
-							else
-								local matches = FindPlayers(env,argtext,player);
-								if not matches then return env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'}); end;
-								if #matches == 0 then
-									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif #matches == 1 then
-									sortedarguments[argname] = matches[1];
-								else
-									-- Warn the player that multiple players were found
-									env:Notify(player,"Multiple players were found when searching for argument "..argname..": Picked the first match.",{
-										Type = "warning";
-										Client = true;
-									});
-									sortedarguments[argname] = matches[1];
-								end
-							end
-						elseif argtype == "safeplayer" then -- If the argument type is safeplayer, then we need to find a player whose level is below the executor and return the argument as the player instance for the command to use.
-							if not argtext then
-								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired or command.Arguments[argposition+1] then
-									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You must provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									-- If it is not required and there is no other argument, then use the player as the argument
-									sortedarguments[argname] = player;
-								end
-							else
-								local matches = FindPlayers(env,argtext,player);
-								if not matches then return env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'}); end;
-								if #matches == 0 then
-									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif #matches == 1 then
-									if env:GetLevel(matches[1]) >= env:GetLevel(player) then
-										env:Notify(player,"You can't use this command on a player with the same or higher level than you.",{
-											Type = "error";
-											Client = true;
-										});
-										return
-									end
-									sortedarguments[argname] = matches[1];
-								else
-									-- Check every match to see if they are below the executor
-									local safematches = {};
-									for _,match in pairs(matches) do
-										if env:GetLevel(match) < env:GetLevel(player) then
-											table.insert(safematches,match);
-										end
-									end
-									if #safematches == 0 then
-										env:Notify(player,"No safe player was found when searching for argument "..argname,{
-											Type = "error";
-											Client = true;
-										});
-										return
-									elseif #safematches == 1 then
-										sortedarguments[argname] = safematches[1];
-									else
-										-- Due to being SAFE player, we don't want 'any' match, we want a specific one.
-										env:Notify(player,"Multiple players were found when searching for argument "..argname..": Please attempt to be more specific.",{
-											Type = "error";
-											Client = true;
-										});
-										return
-									end
-								end
-							end
-						elseif argtype == "string" then
-							-- Check if this is the last argument; If it is, assume that the rest of the message is the string
-							if command.Arguments[argposition+1] then -- It is not the last argument.
-								if argtext and argtext ~= "" and argtext ~= " " then
-									sortedarguments[argname] = argtext;
-								else
-									if argrequired then
-										env:Notify(player,"You need to provide a valid string for argument "..argname,{
-											Type = "error";
-											Client = true;
-										});
-										return
-									else
-										sortedarguments[argname] = argdefault;
-									end
-								end
-							else -- It is the last argument.
-								-- check if it's required (why didnt it check it before? 💀)
-								if argrequired then
-									if argtext and argtext ~= "" and argtext ~= " " then
-										-- Concatenate the rest of the message into the string
-										local str = "";
-										for i = argposition,#args do
-											str ..= args[i].." ";
-										end
-										str = str:sub(1,-2); -- Remove the last space
-										sortedarguments[argname] = str;
-									else
-										env:Notify(player,"You need to provide a valid string for argument "..argname,{
-											Type = "error";
-											Client = true;
-										});
-										return
-									end
-								else
-									if argtext and argtext ~= "" and argtext ~= " " then
-										local str = "";
-										for i = argposition,#args do
-											str ..= args[i].." ";
-										end
-										str = str:sub(1,-2); -- Remove the last space
-										sortedarguments[argname] = str;
-									else
-										sortedarguments[argname] = argdefault;
-									end;
-								end
-							end
-
-							-- Check if the sortedarguments[argname] is in one of the options; If yes, autocomplete it to match the option
-							if arg.Options then
-								if type(arg.Options) == "function" then
-									-- Since the call itself is already protected with pcall, we don't need to pcall this function.
-									arg.Options = arg.Options(sortedarguments[argname]);
-								elseif type(arg.Options) == 'table' then
-									local found = false;
-									for _,v in arg.Options do
-										-- if v (the option) starts with the sortedarguments[argname] (the argument), then it is a match; Set found to the option
-										if sortedarguments[argname] then
-											if v:sub(1,#sortedarguments[argname]):lower() == sortedarguments[argname]:lower() then
-												found = v;
-												break;
-											end
-										else
-											found = v;
-											break;
-										end
-									end
-									if found then
-										-- Estimate that the player is trying to autocomplete the argument; Set the argument to the option
-										sortedarguments[argname] = found;
-									end
-								end;
-							end
-						elseif argtype == "number" or argtype == "slider" then
-							if argtext and tonumber(argtext) then
-								sortedarguments[argname] = math.clamp(tonumber(argtext),arg.Minimum,arg.Maximum);
-							else
-								if argrequired then
-									env:Notify(player,"You need to provide a valid number for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									sortedarguments[argname] = argdefault;
-								end
-							end
-						elseif argtype == "boolean" then
-							if argtext then
-								if string.lower(argtext) == "true" then
-									sortedarguments[argname] = true;
-								elseif string.lower(argtext) == "false" then
-									sortedarguments[argname] = false;
-								else
-									if argrequired then
-										env:Notify(player,"You need to provide a valid boolean for argument "..argname,{
-											Type = "error";
-											Client = true;
-										});
-										return
-									else
-										sortedarguments[argname] = argdefault;
-									end
-								end
-							else
-								if argrequired then
-									env:Notify(player,"You need to provide a valid boolean for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									sortedarguments[argname] = argdefault;
-								end
-							end
-						elseif argtype == "color" then -- Colors are using the env.ColorLib(color) function
-							if argtext then
-								local color = env.ColorLib(argtext); -- Since the library **always** returns a color, we don't need to check if it is valid
-								sortedarguments[argname] = color;
-							elseif argrequired then
-								env:Notify(player,"You need to provide a valid color for argument "..argname,{
-									Type = "error";
-									Client = true;
-								});
-								return
-							else
-								sortedarguments[argname] = argdefault;
-							end
-						elseif argtype == 'time' then --TODO: allow use of '1d', '1min', '1mo' etc
-							env:Notify(player,"Command failed: Incompatible version?",{
-								Type = "critical";
-								Client = true;
-							});
-							return warn('Something is using an argument type that isn\'t compatible with this version.')
-						elseif argtype == 'custom' then -- rawinput but worse (help)
-							--[[
-							{
-								Name = 'Argument';
-								Type = 'custom';
-								Required = false;
-								Default = function() return 'Default' end; -- can return anything
-								Function = function(env, text, arguments, player)
-									return 'Output'; -- can return anything
-								end;
-								ClientCheck = function(env, text)
-									return true, Color3.fromRGB(255,255,255); -- must always return a boolean; tuple[2] is an optional color that will default to white;
-								end;
-								IsValid = function(env, text, arguments, player)
-									return true; -- must always return a boolean
-								end;
-							}
-							]]
-							local ValidSuccess, isValid = pcall(arg.IsValid, env, argtext, sortedarguments, player);
-							if not ValidSuccess then
-								env:Notify(player,"Argument.IsValid error for "..argname..': '..isValid, {
-									Type = "critical";
-								});
-								return
-							end
-
-							if not isValid then
-								env:Notify(player,"You need to provide a valid value for argument "..argname, {
-									Type = "warning";
-								});
-								return
-							end
-
-							if argtext then
-								local FunctionSuccess, Output = pcall(arg.Function, env, argtext, sortedarguments, player)
-								if not FunctionSuccess then
-									env:Notify(player,"Argument.Function error for "..argname..': '..Output,{
-										Type = "critical";
-									});
-									return
-								end
-								sortedarguments[argname] = Output;
-							elseif argrequired then
-								env:Notify(player,"You need to provide a valid value for argument "..argname,{
-									Type = "warning";
-								});
-								return
-							else
-								local DefaultSuccess, DefaultValue = pcall(arg.Default, env, argtext, sortedarguments, player);
-								if not DefaultSuccess then
-									env:Notify(player,"Argument.Default error for "..argname..': '..DefaultValue, {
-										Type = "error";
-										Client = true;
-									});
-									return
-								end
-								sortedarguments[argname] = DefaultValue;
-							end
-						elseif argtype == "players" then -- Like player, except returns a table of players instead of a singular one.
-							if not argtext then
-								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired then
-									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif command.Arguments[argposition+1] then
-									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									-- If it is not required and there is no other argument, then use the player as the argument
-									sortedarguments[argname] = {player};
-								end
-							else
-								-- Text was provided; Check if it matches players.
-								local matches = FindPlayers(env,argtext,player);
-								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
-								if #matches == 0 then
-									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									sortedarguments[argname] = matches;
-								end
-							end
-						elseif argtype == "playerlist" then -- Like players, except returns a string of player names instead of a table of players.
-							if not argtext then
-								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired then
-									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif command.Arguments[argposition+1] then
-									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									-- If it is not required and there is no other argument, then use the player as the argument
-									sortedarguments[argname] = player.Name;
-								end
-							else
-								-- Text was provided; Check if it matches players.
-								local matches = FindPlayers(env,argtext,player);
-								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
-								if #matches == 0 then
-									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									local string = "";
-									for _,match in pairs(matches) do
-										string = string..match.Name..", ";
-									end
-									string = string:sub(1,-3); -- Remove the last comma and space
-									sortedarguments[argname] = string;
-								end
-							end
-						elseif argtype == "safeplayers" then -- Like safeplayer, except returns a table of matched players. Ignores players who are below the player's level.
-							if not argtext then
-								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired then
-									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-									});
-									return
-								elseif command.Arguments[argposition+1] then
-									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									-- If it is not required and there is no other argument, then use the player as the argument
-									sortedarguments[argname] = {player};
-								end
-							else
-								-- Text was provided; Check if it matches players.
-								local matches = FindPlayers(env,argtext,player);
-								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel.",{Type='critical'});return end;
-								if #matches == 0 then
-									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									local safematches = {};
-									for _,match in matches do
-										if env:GetLevel(match) < env:GetLevel(player) then
-											table.insert(safematches,match);
-										end
-									end
-									if #safematches == 0 then
-										env:Notify(player,"No safe players were found when searching for argument "..argname,{
-											Type = "error";
-											Client = true;
-										});
-										return
-									else
-										sortedarguments[argname] = safematches;
-									end
-								end
-							end
-						elseif argtype == "safeplayerlist" then -- Like safeplayers, except returns a string of player names instead of a table of players. Ignores players who are below the player's level.
-							if not argtext then
-								-- If no text was provided, check if this is the last argument and if it is required
-								if argrequired then
-									-- If it is required, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								elseif command.Arguments[argposition+1] then
-									-- If it is not required, but there is another argument, then warn the player that they need to provide a player
-									env:Notify(player,"You need to provide a player for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									-- If it is not required and there is no other argument, then use the player as the argument
-									sortedarguments[argname] = player.Name;
-								end
-							else
-								-- Text was provided; Check if it matches players.
-								local matches = FindPlayers(env,argtext,player);
-								if not matches then env:Notify(player,"An unknown error has occurred causing the command to cancel. (Reference Code: FP_RETURNEDNIL)",{Type='critical'});return end;
-								if #matches == 0 then
-									env:Notify(player,"No player was found when searching for argument "..argname,{
-										Type = "error";
-										Client = true;
-									});
-									return
-								else
-									local safematches = {};
-									for _,match in pairs(matches) do
-										if env:GetLevel(match) >= env:GetLevel(player) then
-											table.insert(safematches,match);
-										end
-									end
-									if #safematches == 0 then
-										env:Notify(player,"No safe players were found when searching for argument "..argname,{
-											Type = "error";
-											Client = true;
-										});
-										return
-									else
-										local string = "";
-										for _,match in pairs(safematches) do
-											string = string..match.Name..", ";
-										end
-										string = string:sub(1,-3); -- Remove the last comma and space
-										sortedarguments[argname] = string;
-									end
-								end
-							end
-						end
-					end
-				end
-
-				if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Processed {command.Name}`) end
-
-				-- Add the command run to the logs; Check to see if the player added a --silent flag
-				if not commandkeys["silent"] then
-					-- If they did, then don't log the command
-					table.insert(env.Data.Logs.Commands, {
-						os.time();
-						player.UserId;
-						console and "console" or "chat";
-						msg;
+						Image = "http://www.roblox.com/asset/?id=6031071053";
+						Options = {"Got it"};
 					});
 				end
+			end
 
-				-- Check to see if the player added a --delay flag; If they did, then delay the command
-				if commandkeys["delay"] then
-					local delay = tonumber(commandkeys["delay"]);
-					if delay then
-						delay = math.clamp(delay,0,60);
-						task.wait(delay);
-					else
-						env:Notify(player,"Couldn't delay the command due to the value being a non-number.",{
-							Type = "warning";
-							Client = true;
-						});
+			if successRun == false then
+				table.insert(env.Data.Logs.Errors, {os.time(), "Command Execution Failed: " .. cmd .. ' with error "' .. tostring(ret) .. '"'});
+				if not compatibility then
+					env.RemoteEvent:FireClient(player, "Notify", "An error has occured while attempting to run the command; " .. tostring(ret), {
+						Type = "critical";
+						Image = "http://www.roblox.com/asset/?id=6031071053";
+						Options = {"Got it"};
+					});
+				else
+					env.RemoteEvent:FireClient(player, "Notify", "Command is not compatible; " .. tostring(ret), {
+						Type = "error";
+						Image = "http://www.roblox.com/asset/?id=6026568192";
+						Options = {"Got it"};
+					});
+				end;
+				env.Signals.ErrorRaised:Fire("Command Execution Failed: " .. cmd .. ' with error "' .. tostring(ret) .. '"');
+				return;
+			end
+
+			pcall(function()
+				command.LastRun = tick();
+				command.LastRunBy[player.UserId] = tick();
+			end)
+
+			if ret or typeof(ret) == "boolean" then
+				local runcontext = {
+					Command = command;
+					Compatibility = compatibility;
+					Returned = ret;
+					Keys = commandkeys;
+					Arguments = sortedarguments;
+					Executor = player;
+					Source = console and "console" or "chat";
+				};
+
+				env.Signals.CommandProcessed:Fire(player, command.Name, runcontext);
+
+				for _, v in env.Hooks.Command.Ran do
+					local okHook, hookErr = pcall(function()
+						return v(env, runcontext);
+					end);
+
+					if not okHook then
+						warn("Redefine:A | CommandRan Hook error: " .. tostring(hookErr));
+						table.insert(env.Data.Logs.Errors, {os.time(), `Hook Failed: CommandRan: with error; {hookErr}`});
 					end
 				end
 
-				-- Last minute cooldown check
-				if command.Cooldown > 0 then
-					if not (type(command.LastRun) == "number") then command.LastRun = 0 end
-					if command.LastRun + command.Cooldown > tick() then
-						env:Notify(player,"This command is on cooldown. You can run it again in "..math.floor((command.LastRun + command.Cooldown) - tick()).." seconds.",{
-							Type = "warning";
-							Client = true;
-						})
-						return
-					end
-
-				end
-
-				if command.UserCooldown > 0 then
-					if not (type(command.LastRunBy) == "table") then command.LastRunBy = {} end
-					if command.LastRunBy[player.UserId] and command.LastRunBy[player.UserId] + command.UserCooldown > tick() then
-						env:Notify(player,"This command is on cooldown for you. You can run it again in "..math.floor((command.LastRunBy[player.UserId] + command.UserCooldown) - tick()).." seconds.",{
-							Type = "warning";
-							Client = true;
-						})
-						return
-					end
-				end
-
-				for _,v in env.Hooks.Command.PostProcess do
-					local success, response = pcall(function() return v(env, player, cmd, sortedarguments, console) end);
-
-					if not success then warn('Redefine:A | PostProcess Hook error: ' .. response); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: PostProcess: with error; {response}`}) end;
-					if type(response)=='nil' then continue end;
-
-					if type(response) == "table" then
-						if response.Cancel then -- Cancel the command.
-							return
-						end
-						if response.Arguments then -- Change the arguments
-							sortedarguments = response.Arguments
-						end
-					elseif type(response)=='boolean' then
-						if response == false then -- Cancel the command.
-							return
-						end
-					end;
+				if typeof(ret) == "boolean" then
+					ret = {
+						Success = ret;
+						Message = ret and ("Command " .. command.Name .. " returned a success") or ("Command " .. command.Name .. " returned a failure");
+					};
 				end;
 
-				-- Run the command
-				-- Check if the command is ran with compatibility mode
-
-				if env.Data.Settings.EnableDebug then
-					print(`Redefine:A Debug | Attempting to run thread with command {command.Name}, with ArgumentsType {type(command.Arguments)=='string'and string.lower(command.Arguments)=='rawinput'and'RAWINPUT'or'NORMAL'}`)
+				if ret.Success == true then
+					env.RemoteEvent:FireClient(player, "Notify", ret.Message, {Timeout = 10;});
+				elseif ret.Success == false then
+					env.RemoteEvent:FireClient(player, "Notify", ret.Message, {Type = "warning"; Timeout = 10;});
 				end
+			else
+				env.Signals.CommandProcessed:Fire(player, command.Name, {
+					Command = command;
+					Returned = {Success = true; Message = "The command has not returned anything."};
+					Keys = commandkeys;
+					Arguments = sortedarguments;
+					Source = console and "console" or "chat";
+				});
 
-				local Thread = task.spawn(function()
-					local success,ret,clientsuccess,clientret
-					local compatibility = false;
-					if (env.NanoCommands and env.NanoCommands[command.Name:lower()]) then
-						compatibility = true;
-						if sortedarguments[1] then
-							table.insert(sortedarguments,1,command.Name);
-						end
-						success,ret = pcall(function() return command.OnRun(player, sortedarguments,env); end)
-					else
-						if command.OnRun then -- server-side
-							success,ret = pcall(function() return command.OnRun(env, player, sortedarguments,commandkeys); end)
-						end
-						if command.OnClientRun then -- client-side (send data stuff)
-							local s = pcall(function()
-								clientsuccess, clientret = env.RemoteFunction:InvokeClient(player, "RunClientCommand", command.Name:lower(), sortedarguments, commandkeys);
-								print(clientsuccess, clientret);
-							end)
-							if not s then
-								clientsuccess = false;
-								clientret = 'General issue: Client disconnect?'
-							end
-						end
-					end;
-					if typeof(clientsuccess) ~= nil then
-						if not clientsuccess and clientret then
-							env.RemoteEvent:FireClient(player,"Notify","Client-sided error while running "..cmd.."; "..clientret,{
-								Type = "error";
-								Image = "http://www.roblox.com/asset/?id=6031071053";
-								Options = {
-									"Got it";
-								};
-							});
-						end
-					end
-					if typeof(success)=='boolean' and not success then
-						table.insert(env.Data.Logs.Errors,{os.time(),"Command Execution Failed: "..cmd..' with error "'..ret..'"'});
-						if not compatibility then
-							env.RemoteEvent:FireClient(player,"Notify","An error has occured while attempting to run the command; "..ret,{
-								Type = "critical";
-								Image = "http://www.roblox.com/asset/?id=6031071053";
-								Options = {
-									"Got it";
-								};
-							});
-						else
-							env.RemoteEvent:FireClient(player,"Notify","Command is not compatible; "..ret,{
-								Type = "error";
-								Image = "http://www.roblox.com/asset/?id=6026568192";
-								Options = {
-									"Got it";
-								};
-							});
-						end;
-						env.Signals.ErrorRaised:Fire("Command Execution Failed: "..cmd..' with error "'..ret..'"');
-					else
-						pcall(function() -- Those are destined to fail if the command doesn't use cooldowns, but we don't want to crash if they don't; Doesn't do anything if the command doesn't use cooldowns.
-							command.LastRun = tick();
-							command.LastRunBy[player.UserId] = tick();
-						end)
-
-						if ret or typeof(ret)=='boolean' then
-							local runcontext = {
-								Command = command;
-								Compatibility = compatibility;
-								Returned = ret;
-								Keys = commandkeys;
-								Arguments = sortedarguments;
-								Executor = player;
-								Source = console and "console" or "chat";
-							};
-							-- Deprecated; Use Hooks.Command.Ran instead
-							env.Signals.CommandProcessed:Fire(player, command.Name, runcontext);
-
-							for _,v in pairs(env.Hooks.Command.Ran) do
-								local success, error = pcall(function() return v(env, runcontext) end);
-
-								if not success then warn('Redefine:A | CommandRan Hook error: ' .. error); table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: CommandRan: with error; {error}`}) end;
-							end
-
-							if typeof(ret) == 'boolean' then
-								ret = {
-									Success = ret;
-								}
-								ret.Message = ret.Success and 'Command '..command.Name..' returned a success' or 'Command '..command.Name..' returned a failure';
-							end;
-
-							if ret.Success == true then
-								env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
-									Timeout = 10;	
-								});
-							elseif ret.Success == false then
-								env.RemoteEvent:FireClient(player,"Notify",ret.Message,{
-									Type = "warning";
-									Timeout = 10;
-								});
-							end
-						else
-							env.Signals.CommandProcessed:Fire(player, command.Name, {Command = command, Returned = {Success = true; Message = "The command has not returned anything."}, Keys = commandkeys, Arguments = sortedarguments, Source = console and "console" or "chat"});
-
-							if compatibility then
-								print("Command returned without a response");
-							end
-						end
-					end
-				end);
+				if compatibility then
+					print("Command returned without a response");
+				end
 			end
-			return true;
-		end
+		end);
+
+		return true;
 	end);
 
 	if not success then
-		env:Notify(player,"An error has occured while attempting to run the command; "..err,{
+		env:Notify(player, "An error has occured while attempting to run the command; " .. tostring(err), {
 			Type = "critical";
 			Image = "http://www.roblox.com/asset/?id=6031071053";
 			Timeout = 30;
 		});
 	end
-end;
+end
 
-return function(env, player:Player, msg:string, console:boolean)
-	if env.Data.Settings.EnableDebug then print(`Redefine:A Debug | Received {msg} as CONSOLE={tostring(console==true)}`) end
-	msg = env.BetterBasics.string.fixnewchat(msg);
-
-	-- Check if the player used /e for the command.
-	local originalmsg = msg;
-	if not console then
-		env.Signals.ChatProcessed:Fire(player,originalmsg)
+return function(env, player: Player, msg: string, console: boolean)
+	Types.ConnectEnv(env);
+	
+	if env.Data.Settings.EnableDebug then
+		print(`Redefine:A Debug | Received {msg} as CONSOLE={tostring(console==true)}`)
 	end
 
-	if msg:sub(1,2) == "/e" and env.Data.Settings.SilentEnabled then
-		console = true; -- Pretend like it was sent from a command bar.
+	msg = env.BetterBasics.string.fixnewchat(msg);
+
+	local originalmsg = msg;
+	if not console then
+		env.Signals.ChatProcessed:Fire(player, originalmsg);
+	end
+
+	if msg:sub(1, 2) == "/e" and env.Data.Settings.SilentEnabled then
+		console = true;
 		msg = msg:sub(4) :: string;
 	end
 
 	if not console then
-		--table.insert(env.Data.Logs.Chat,{os.time(),player.UserId,msg})
 		table.insert(
 			env.Data.Logs.Chat,
-			{Time=os.time(); UserId=player.UserId; Message = msg} :: Chatlog
-		)
+			{Time = os.time(); UserId = player.UserId; Message = msg} :: Chatlog
+		);
 	end
 
-	-- Since we got access to the env, we can start sorting the qualifiers.
-	if not sortedqualifiers then
-		local selectedmethod = string.lower(env.Data.Settings.QualifierMethod);
-		if selectedmethod == "sm" then selectedmethod = "sourcemod"; end
-		if selectedmethod == "mc" then selectedmethod = "minecraft"; end
-		if selectedmethod == "s" then selectedmethod = "simple"; end
-
-		sortedqualifiers = {} :: {Qualifier};
-		-- Check if the qualifier method is valid.
-		if not (selectedmethod == "sourcemod" or selectedmethod == "minecraft" or selectedmethod == "simple") then
-			warn("Invalid qualifier method selected. Defaulting to 'simple'.");
-			-- hi, 14th of Jan 2024: you had enough time to switch from sourcemod, right? xd
-			selectedmethod = "simple";
-		end;
-
-		-- Loop through all the qualifiers to check if they have the selected method.
-		for _, qualifier in env.Qualifiers do
-			if qualifier.methods[selectedmethod] then
-				sortedqualifiers[qualifier.methods[selectedmethod]] = qualifier;
-			end;
-		end;
-	end;
-
 	if env.Data.Settings.Splitter and not console then
-		local Splits = string.split(msg,env.Data.Settings.Splitter)
+		local Splits = string.split(msg, env.Data.Settings.Splitter);
 		for _, Command in Splits do
 			runCommand(env, player, Command, console);
 		end

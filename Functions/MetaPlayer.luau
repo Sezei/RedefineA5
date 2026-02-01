@@ -75,38 +75,35 @@ local function CreateMeta(env:any, plr:Player?)
 	function player:Gag(reason:string?)
 		if not player.InGame then return end;
 		setGagState(true);
-		if reason then
-			table.insert(senv.Data.Logs.System, {os.time(), "MetaPlayer", `Gagged {player.Name}: {reason}`});
-		end
 	end
 
 	function player:Ungag()
 		if not player.InGame then return end;
 		setGagState(false);
 	end
-	
+
 	do (function() 
 			if not senv.VCSDK then return end;
 			local VCSDK = senv.VCSDK;
-			
+
 			function player:Mute(Duration)
 				if not VCSDK.PlayerHasVoice(player.self) then return end;
 
 				VCSDK.MutePlayer(player.self, Duration);
 			end
-			
+
 			function player:Unmute()
 				if not VCSDK.PlayerHasVoice(player.self) then return end;
-				
+
 				VCSDK.UnmutePlayer(player.self);
 			end
-			
+
 			function player:SetVolume(NewVolume)
 				if not VCSDK.PlayerHasVoice(player.self) then return end;
-				
+
 				VCSDK.SetPlayerVolume(player.self, NewVolume);
 			end
-	end)() end
+		end)() end
 
 	table.insert(plrs,player);
 

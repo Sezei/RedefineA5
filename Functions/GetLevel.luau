@@ -77,7 +77,7 @@ return function(env, player)
 					if type(value.GroupId) == "number" then
 						for rank, isActive in pairs(value) do
 							if type(rank) == "number" and isActive then
-								local s, playerRank = pcall(player.GetRankInGroup, player, value.GroupId);
+								local s, playerRank = pcall(player.GetRankInGroupAsync, player, value.GroupId);
 								if s and playerRank == rank then
 									updateCandidate(level, not value.MarkAsTemporary, data.Admin or true);
 								end;
@@ -143,6 +143,8 @@ return function(env, player)
 			end;
 		end;
 		
+		--print('<< TEMPORARY GLOBAL DEBUG PRINT >> R:A | Level for '..userName..': ', bestLevel,bestBase,bestIsAdmin)
+		
 		for _,v in env.Hooks.Level.Get do
 			local success, response = pcall(function() return v(env, player, bestLevel or 0) end);
 --																	             ^ expected level
@@ -171,6 +173,8 @@ return function(env, player)
 				table.insert(env.Data.Logs.Errors, {os.time(),`Hook Failed: Level.Get: Invalid Response Type`}); continue
 			end
 		end;
+		
+		--print('<< TEMPORARY GLOBAL DEBUG PRINT >> R:A | Post-Hook Level for '..userName..': ', bestLevel,bestBase,bestIsAdmin)
 		
 		return bestLevel or 0, bestBase or false, bestIsAdmin or false;
 		-- Offline branch: player is a string (username) or number (UserId).
